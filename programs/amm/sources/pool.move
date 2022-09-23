@@ -11,6 +11,7 @@ module sui_lipse::amm{
     const EZEROAMOUNT:u64 = 0;
     const EINVALIDFEE:u64 = 1;
     const EFULLPOOL:u64 = 2;
+    const ENOTENOUGHCOIN:u64 = 3;
 
     const FEE_SCALING:u64 = 10000;
     const MAX_POOL_VALUE: u64 = {
@@ -66,12 +67,27 @@ module sui_lipse::amm{
         coin::from_balance(lp_balance, ctx)
     }
 
+    public fun swap_sui<V,Y>(pool:&mut Pool<V,Y>, sui:Coin<SUI>, ctx:&mut TxContext):Coin<Y>{
+        let sui_value = coin::value(&sui);
+
+        assert!(sui_value >0, ENOTENOUGHCOIN);
+
+        let (reserve_sui, reserve_y, _) = get_amounts(pool);
+        let output_amount = get_input(sui_value, reserve_sui, reserve_y, pool.fee_percentage);
+
+        let sui_balance = coin::into_balance(sui);//get the inner ownership
+
+        balance::join<SUI>(&mut pool.reserve_sui, sui_balance);// transaction fee goes back to pool
+        coin::take<Y>(&mut pool.reserve_y, output_amount, ctx)
+    }
+
     fun add_liquidity(){}
 
     fun remove_liquidity(){}
 
 
-    //helper
+    // ------ helper functions -------
+
     //( sui_reserve, token_y_reserve, lp_token_supply)
      public fun get_amounts<V, Y>(pool: &Pool<V, Y>): (u64, u64, u64) {
         (
@@ -79,6 +95,18 @@ module sui_lipse::amm{
             balance::value(&pool.reserve_y),
             balance::supply_value(&pool.lp_supply)
         )
+    }
+
+    // ------ utils -------
+
+    //dy = (dx*y) / (dx + x), at dx' = dx(1 - fee)
+    public fun get_input(dx:u64, x:u64, y:u64, f:u64
+    ):u64{
+        let dx_fee_deduction = (FEE_SCALING - f) * dx;
+        let numerator = dx_fee_deduction * y;
+        let denominator = FEE_SCALING * x + dx_fee_deduction;
+
+        (numerator / denominator)
     }
 
 
@@ -115,6 +143,10 @@ module sui_lipse::amm_test{
         let scenario = test::begin(&@0x1);
         test_init_pool_(&mut scenario);
     }
+     #[test] fun test_swap_sui() {
+        let scenario = test::begin(&@0x1);
+        test_swap_sui_(&mut scenario);
+    }
 
 
     fun test_init_pool_(test:&mut Scenario){
@@ -138,7 +170,7 @@ module sui_lipse::amm_test{
             assert!(burn(lsp) == 31622000, 0);
         };
 
-        //validate
+        //shared_pool
         next_tx(test, &lp);
         {
             let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
@@ -149,8 +181,13 @@ module sui_lipse::amm_test{
             assert!(token_y_r == TOKEN_Y_AMT,0);
             assert!(lp_s == 31622000,0);
 
+
             test::return_shared(test, pool);
         }
+     }
+
+     fun test_swap_sui_(test: &mut Scenario){
+
      }
 
     //utilities

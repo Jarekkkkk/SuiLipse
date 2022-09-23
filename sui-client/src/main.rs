@@ -25,6 +25,23 @@ fn sqrt(y: u64) -> u64 {
         z
     }
 }
+fn sui_sqrt(x: u64) -> u64 {
+    let mut bit = 1u128 << 64;
+    let mut res = 0u128;
+    let mut x = (x as u128);
+
+    while (bit != 0) {
+        if (x >= res + bit) {
+            x = x - (res + bit);
+            res = (res >> 1) + bit;
+        } else {
+            res = res >> 1;
+        };
+        bit = bit >> 2;
+    }
+
+    (res as u64)
+}
 
 #[cfg(test)]
 mod tests {
@@ -34,7 +51,8 @@ mod tests {
     fn test_sqrt() {
         let sui = 1_000_000;
         let token_y = 1_000_000_000;
-        let res = sqrt(sui) * sqrt(token_y);
+        //let res = sqrt(sui) * sqrt(token_y);
+        let res = sui_sqrt(sui) * sui_sqrt(token_y);
         println!("res\n{}", res);
     }
 }

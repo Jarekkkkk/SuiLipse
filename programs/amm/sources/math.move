@@ -22,10 +22,6 @@ module sui_lipse::math{
         if (a > b) b else a
     }
 
-    public fun max_u64(a: u64, b: u64): u64 {
-        if (a < b) b else a
-    }
-
     public fun max(a: u64, b: u64): u64 {
         if (a < b) b else a
     }
