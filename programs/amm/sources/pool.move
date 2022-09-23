@@ -187,8 +187,21 @@ module sui_lipse::amm_test{
      }
 
      fun test_swap_sui_(test: &mut Scenario){
+        let (_, trader) = people();
 
-     }
+        test_init_pool_(test);
+
+        next_tx(test, &trader);{
+            let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
+            let shared_pool = test::borrow_mut(&mut pool);
+
+            let token_y = amm::swap_sui<JAREK, TOKEN_Y>(shared_pool, mint<SUI>(5000, ctx(test)), ctx(test));
+
+            assert!(burn(token_y) == 4973639, 0);
+
+            test::return_shared(test, pool);
+        }
+    }
 
     //utilities
     fun people(): (address, address) { (@0xABCD, @0x1234 ) }
