@@ -43,6 +43,14 @@ fn sui_sqrt(x: u64) -> u64 {
     (res as u64)
 }
 
+fn get_input(dx: u64, x: u64, y: u64, f: u64) -> u64 {
+    let dx_fee_deduction = (10000 - f) * dx;
+    let numerator = dx_fee_deduction * y;
+    let denominator = 10000 * x + dx_fee_deduction;
+
+    (numerator / denominator)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,8 +59,9 @@ mod tests {
     fn test_sqrt() {
         let sui = 1_000_000;
         let token_y = 1_000_000_000;
-        //let res = sqrt(sui) * sqrt(token_y);
-        let res = sui_sqrt(sui) * sui_sqrt(token_y);
-        println!("res\n{}", res);
+
+        let input = get_input(5000, sui, token_y, 3);
+
+        println!("get input{}", input);
     }
 }
