@@ -116,15 +116,33 @@ module sui_lipse::amm{
 
         let sui_balance = coin::into_balance(sui);
         let token_y_balance = coin::into_balance(token_y);
-        balance::join<SUI>(&mut pool.reserve_sui, sui_balance);
-        balance::join<Y>(&mut pool.reserve_y, token_y_balance);
+
+        let sui_pool = balance::join<SUI>(&mut pool.reserve_sui, sui_balance);
+        let token_y_pool = balance::join<Y>(&mut pool.reserve_y, token_y_balance);
+
+        assert!(sui_pool < MAX_POOL_VALUE ,EFullPool);
+        assert!(token_y_pool < MAX_POOL_VALUE ,EFullPool);
 
         let output_balance = balance::increase_supply<LP_TOKEN<V, Y>>(&mut pool.lp_supply, output);
-
         coin::from_balance(output_balance, ctx)
     }
 
-    fun remove_liquidity<V, Y>(){}
+    public fun remove_liquidity<V, Y>(pool:&mut Pool<V, Y>, lp_token:Coin<LP_TOKEN<V, Y>>, ctx: &mut TxContext):(Coin<SUI>, Coin<Y>){
+        let lp_value = coin::value(&lp_token);
+        assert!(lp_value > 0, ENotEnoughCoin);
+
+        let (reserve_sui, reserve_y, lp_supply) = get_amounts(pool);
+
+        //let percenatge = (lp_value / lp_supply)
+        let sui_output = (reserve_sui * lp_value / lp_supply);
+        let token_y_output = (reserve_y * lp_value / lp_supply);
+
+        balance::decrease_supply<LP_TOKEN<V,Y>>(&mut pool.lp_supply,coin::into_balance(lp_token));
+        (
+            coin::take<SUI>(&mut pool.reserve_sui, sui_output, ctx),
+            coin::take<Y>(&mut pool.reserve_y, token_y_output, ctx)
+        )
+    }
 
 
     // ------ helper script functions -------
@@ -182,7 +200,7 @@ module sui_lipse::amm_test{
     use sui::sui::SUI;
     use sui::coin::{mint_for_testing as mint, destroy_for_testing as burn};
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
-    use sui_lipse::amm::{Self, Pool};
+    use sui_lipse::amm::{Self, Pool, LP_TOKEN};
 
     struct TOKEN_Y {}
 
@@ -208,6 +226,10 @@ module sui_lipse::amm_test{
      #[test] fun add_liquidity() {
         let scenario = test::begin(&@0x1);
         add_liquidity_(&mut scenario);
+    }
+    #[test] fun remove_liquidity() {
+        let scenario = test::begin(&@0x1);
+        remove_liquidity_(&mut scenario);
     }
 
     fun test_init_pool_(test:&mut Scenario){
@@ -301,6 +323,26 @@ module sui_lipse::amm_test{
         }
     }
 
+    fun remove_liquidity_(test: &mut Scenario){
+        let (_, trader) = people();
+
+        test_init_pool_(test);
+        test_swap_sui_(test);
+
+        next_tx(test, &trader);{
+            let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
+            let shared_pool = test::borrow_mut(&mut pool);
+            // (X, Y) = (5000000, 995026361)
+            let lp_token = mint<LP_TOKEN<JAREK, TOKEN_Y>>(31622000, ctx(test));
+
+            let (withdraw_sui, withdraw_token_y) = amm::remove_liquidity(shared_pool, lp_token, ctx(test));
+
+            assert!(burn(withdraw_sui) == 5000000, 0);
+            assert!(burn(withdraw_token_y) == 995026361, 0);
+
+            test::return_shared(test, pool);
+        }
+        }
     //utilities
     fun people(): (address, address) { (@0xABCD, @0x1234 ) }
 }
