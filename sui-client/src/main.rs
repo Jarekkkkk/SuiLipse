@@ -42,6 +42,20 @@ fn sui_sqrt(x: u64) -> u64 {
 
     (res as u64)
 }
+fn min(a: u64, b: u64) -> u64 {
+    if a > b {
+        b
+    } else {
+        a
+    }
+}
+fn max(a: u64, b: u64) -> u64 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
 
 fn get_input(dx: u64, x: u64, y: u64, f: u64) -> u64 {
     let dx_fee_deduction = (10000 - f) * dx;
@@ -49,6 +63,14 @@ fn get_input(dx: u64, x: u64, y: u64, f: u64) -> u64 {
     let denominator = 10000 * x + dx_fee_deduction;
 
     (numerator / denominator)
+}
+
+fn get_lp_supply(x: u64, y: u64) -> u64 {
+    sqrt(x) * sqrt(y)
+}
+
+fn minted_lp_after_increase_liquidity(x: u64, y: u64, dx: u64, dy: u64, lp_supply: u64) -> u64 {
+    min(dx * lp_supply / x, dy * lp_supply / y)
 }
 
 #[cfg(test)]
@@ -60,12 +82,12 @@ mod tests {
 
     #[test]
     fn test_sqrt() {
-        let input = 5_000_000;
-        let output = get_input(input, TOKEN_Y, SUI, 3);
+        let sui = 50;
+        let token_y = 50_000;
+        let lp = get_lp_supply(SUI, TOKEN_Y);
+        println!("get lp\n{}", lp);
+        let output = minted_lp_after_increase_liquidity(SUI, TOKEN_Y, sui, token_y, lp);
 
         println!("get input{}", output);
-
-        let foo = 1;
-        assert!(foo == 1, "test");
     }
 }

@@ -99,7 +99,7 @@ module sui_lipse::amm{
     }
 
 
-    fun add_liquidity<V, Y>(pool:&mut Pool<V, Y>, sui:Coin<SUI>, token_y:Coin<Y>, ctx:&mut TxContext):Coin<LP_TOKEN<V, Y>>{
+    public fun add_liquidity<V, Y>(pool:&mut Pool<V, Y>, sui:Coin<SUI>, token_y:Coin<Y>, ctx:&mut TxContext):Coin<LP_TOKEN<V, Y>>{
         let sui_value = coin::value(&sui);
         let token_y_value = coin::value(&token_y);
 
@@ -110,9 +110,8 @@ module sui_lipse::amm{
         let reserve_sui_value = balance::value<SUI>(&pool.reserve_sui);
         let reserve_token_y_value = balance::value<Y>(&pool.reserve_y);
         let output = math::min(
-
-            (sui_value / reserve_sui_value) * lp_supply_value,
-            (token_y_value / reserve_token_y_value) * lp_supply_value
+            (sui_value * lp_supply_value / reserve_sui_value),
+            (token_y_value * lp_supply_value / reserve_token_y_value)
         );
 
         let sui_balance = coin::into_balance(sui);
@@ -206,7 +205,10 @@ module sui_lipse::amm_test{
         let scenario = test::begin(&@0x1);
         test_swap_token_y_(&mut scenario);
     }
-
+     #[test] fun add_liquidity() {
+        let scenario = test::begin(&@0x1);
+        add_liquidity_(&mut scenario);
+    }
 
     fun test_init_pool_(test:&mut Scenario){
         let ( lp, _) = people();
@@ -276,6 +278,24 @@ module sui_lipse::amm_test{
             let output_sui = amm::swap_token_y<JAREK, TOKEN_Y>(shared_pool, mint<TOKEN_Y>(5000000, ctx(test)), ctx(test));
 
             assert!(burn(output_sui) == 4973,0);
+
+            test::return_shared(test, pool);
+        }
+    }
+
+    fun add_liquidity_(test: &mut Scenario){
+        let (_, trader) = people();
+
+        test_init_pool_(test);
+
+        next_tx(test, &trader);{
+            let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
+            let shared_pool = test::borrow_mut(&mut pool);
+
+
+            let output_lp = amm::add_liquidity(shared_pool, mint<SUI>(50, ctx(test)), mint<TOKEN_Y>(50000, ctx(test)), ctx(test));
+
+            assert!(burn(output_lp)==1581, 0);
 
             test::return_shared(test, pool);
         }
