@@ -55,13 +55,17 @@ fn get_input(dx: u64, x: u64, y: u64, f: u64) -> u64 {
 mod tests {
     use super::*;
 
+    const SUI: u64 = 1_000_000;
+    const TOKEN_Y: u64 = 1_000_000_000;
+
     #[test]
     fn test_sqrt() {
-        let sui = 1_000_000;
-        let token_y = 1_000_000_000;
+        let input = 5_000_000;
+        let output = get_input(input, TOKEN_Y, SUI, 3);
 
-        let input = get_input(5000, sui, token_y, 3);
+        println!("get input{}", output);
 
-        println!("get input{}", input);
+        let foo = 1;
+        assert!(foo == 1, "test");
     }
 }

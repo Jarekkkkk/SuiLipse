@@ -8,10 +8,11 @@ module sui_lipse::amm{
 
     use sui_lipse::math::{Self};
 
-    const EZEROAMOUNT:u64 = 0;
-    const EINVALIDFEE:u64 = 1;
-    const EFULLPOOL:u64 = 2;
-    const ENOTENOUGHCOIN:u64 = 3;
+    const EZeroAmount:u64 = 0;
+    const EInvalidFee:u64 = 1;
+    const EFullPool:u64 = 2;
+    const ENotEnoughCoin:u64 = 3;
+    const EReservesEmpty:u64 = 4;
 
     const FEE_SCALING:u64 = 10000;
     const MAX_POOL_VALUE: u64 = {
@@ -19,9 +20,9 @@ module sui_lipse::amm{
     };
 
 
-    //<P>: pool provider verifier
-    //<T>: one of pair of tokens
-    //LSP: pool token
+    //<V>: pool provider verifier
+    //<Y>: one of pair of tokens
+    //LP_TOKEN: pool token
     struct LP_TOKEN<phantom V, phantom Y> has drop {}
 
     //Initially, pool should all be exchanged 'in SUI based'
@@ -47,9 +48,9 @@ module sui_lipse::amm{
         let sui_value = coin::value(&token_sui);
         let token_y_value = coin::value(&token_y);
 
-        assert!(sui_value > 0 && token_y_value > 0, EZEROAMOUNT);
-        assert!(sui_value < MAX_POOL_VALUE && token_y_value < MAX_POOL_VALUE, EFULLPOOL);
-        assert!(fee_percentage > 0 && fee_percentage <= 10000, EINVALIDFEE);
+        assert!(sui_value > 0 && token_y_value > 0, EZeroAmount);
+        assert!(sui_value < MAX_POOL_VALUE && token_y_value < MAX_POOL_VALUE, EFullPool);
+        assert!(fee_percentage > 0 && fee_percentage <= 10000, EInvalidFee);
 
 
         let lp_shares = math::sqrt(sui_value) * math::sqrt(token_y_value);
@@ -67,10 +68,11 @@ module sui_lipse::amm{
         coin::from_balance(lp_balance, ctx)
     }
 
+    entry fun swap_sui_(){}
     public fun swap_sui<V,Y>(pool:&mut Pool<V,Y>, sui:Coin<SUI>, ctx:&mut TxContext):Coin<Y>{
         let sui_value = coin::value(&sui);
 
-        assert!(sui_value >0, ENOTENOUGHCOIN);
+        assert!(sui_value >0, ENotEnoughCoin);
 
         let (reserve_sui, reserve_y, _) = get_amounts(pool);
         let output_amount = get_input(sui_value, reserve_sui, reserve_y, pool.fee_percentage);
@@ -81,12 +83,66 @@ module sui_lipse::amm{
         coin::take<Y>(&mut pool.reserve_y, output_amount, ctx)
     }
 
-    fun add_liquidity(){}
+    entry fun swap_token_y_(){}
+    public fun  swap_token_y<V,Y>(pool: &mut Pool<V,Y>, token_y:Coin<Y>, ctx: &mut TxContext):Coin<SUI>{
+        let token_y_value = coin::value(&token_y);
+        assert!(token_y_value > 0, ENotEnoughCoin);
 
-    fun remove_liquidity(){}
+        let (reserve_sui, reserve_y, _) = get_amounts(pool);
+        assert!(reserve_sui > 0 && reserve_y > 0, EReservesEmpty);
+
+        let output_amount = get_input(token_y_value, reserve_y, reserve_sui, pool.fee_percentage);
+        let token_y_balance = coin::into_balance(token_y);
+
+        balance::join<Y>(&mut pool.reserve_y, token_y_balance);
+        coin::take<SUI>(&mut pool.reserve_sui, output_amount, ctx)
+    }
 
 
-    // ------ helper functions -------
+    fun add_liquidity<V, Y>(pool:&mut Pool<V, Y>, sui:Coin<SUI>, token_y:Coin<Y>, ctx:&mut TxContext):Coin<LP_TOKEN<V, Y>>{
+        let sui_value = coin::value(&sui);
+        let token_y_value = coin::value(&token_y);
+
+        assert!(sui_value > 0 && token_y_value > 0, ENotEnoughCoin);
+
+        //lack quote on individual inputs
+        let lp_supply_value = balance::supply_value<LP_TOKEN<V, Y>>(&pool.lp_supply);
+        let reserve_sui_value = balance::value<SUI>(&pool.reserve_sui);
+        let reserve_token_y_value = balance::value<Y>(&pool.reserve_y);
+        let output = math::min(
+
+            (sui_value / reserve_sui_value) * lp_supply_value,
+            (token_y_value / reserve_token_y_value) * lp_supply_value
+        );
+
+        let sui_balance = coin::into_balance(sui);
+        let token_y_balance = coin::into_balance(token_y);
+        balance::join<SUI>(&mut pool.reserve_sui, sui_balance);
+        balance::join<Y>(&mut pool.reserve_y, token_y_balance);
+
+        let output_balance = balance::increase_supply<LP_TOKEN<V, Y>>(&mut pool.lp_supply, output);
+
+        coin::from_balance(output_balance, ctx)
+    }
+
+    fun remove_liquidity<V, Y>(){}
+
+
+    // ------ helper script functions -------
+
+    public fun get_sui_price<V, Y>(pool:&Pool<V, Y>):u64{
+        let sui_value = balance::value(&pool.reserve_sui);
+        let token_y_value = balance::value(&pool.reserve_y);
+
+        token_y_value / sui_value
+    }
+
+    public fun get_token_y_price<V, Y>(pool: &Pool<V, Y>):u64{
+        let sui_value = balance::value(&pool.reserve_sui);
+        let token_y_value = balance::value(&pool.reserve_y);
+
+        sui_value/ token_y_value
+    }
 
     //( sui_reserve, token_y_reserve, lp_token_supply)
      public fun get_amounts<V, Y>(pool: &Pool<V, Y>): (u64, u64, u64) {
@@ -98,7 +154,6 @@ module sui_lipse::amm{
     }
 
     // ------ utils -------
-
     //dy = (dx*y) / (dx + x), at dx' = dx(1 - fee)
     public fun get_input(dx:u64, x:u64, y:u64, f:u64
     ):u64{
@@ -147,6 +202,10 @@ module sui_lipse::amm_test{
         let scenario = test::begin(&@0x1);
         test_swap_sui_(&mut scenario);
     }
+     #[test] fun test_swap_token_y() {
+        let scenario = test::begin(&@0x1);
+        test_swap_token_y_(&mut scenario);
+    }
 
 
     fun test_init_pool_(test:&mut Scenario){
@@ -176,10 +235,12 @@ module sui_lipse::amm_test{
             let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
             let shared_pool = test::borrow_mut(&mut pool); // shared_obj could only be borrowed mutably
             let (sui_r, token_y_r, lp_s) = amm::get_amounts<JAREK, TOKEN_Y>(shared_pool);
+            let sui_price = amm::get_sui_price<JAREK, TOKEN_Y>(shared_pool);
 
             assert!(sui_r == SUI_AMT,0);
             assert!(token_y_r == TOKEN_Y_AMT,0);
             assert!(lp_s == 31622000,0);
+            assert!(sui_price == 1000,0);
 
 
             test::return_shared(test, pool);
@@ -198,6 +259,23 @@ module sui_lipse::amm_test{
             let token_y = amm::swap_sui<JAREK, TOKEN_Y>(shared_pool, mint<SUI>(5000, ctx(test)), ctx(test));
 
             assert!(burn(token_y) == 4973639, 0);
+
+            test::return_shared(test, pool);
+        }
+    }
+
+    fun test_swap_token_y_(test: &mut Scenario){
+        let (_, trader) = people();
+
+        test_init_pool_(test);
+
+        next_tx(test, &trader);{
+            let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
+            let shared_pool = test::borrow_mut(&mut pool);
+
+            let output_sui = amm::swap_token_y<JAREK, TOKEN_Y>(shared_pool, mint<TOKEN_Y>(5000000, ctx(test)), ctx(test));
+
+            assert!(burn(output_sui) == 4973,0);
 
             test::return_shared(test, pool);
         }
