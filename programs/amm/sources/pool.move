@@ -3,8 +3,9 @@ module sui_lipse::amm{
     use sui::balance::{Self,Supply, Balance};
     use sui::coin::{Self,Coin};
     use sui::sui::SUI;
-    use sui::tx_context::TxContext;
+    use sui::tx_context::{Self, TxContext};
     use sui::transfer;
+
 
     use sui_lipse::amm_math::{Self};
 
@@ -73,47 +74,46 @@ module sui_lipse::amm{
     }
 
     public fun add_liquidity<V, Y>(
-    pool:&mut Pool<V, Y>, sui:Coin<SUI>, token_y:Coin<Y>,
+    pool:&mut Pool<V, Y>,  sui: Coin<SUI>, token_y: Coin<Y>,
     amount_a_min:u64, amount_b_min:u64, ctx:&mut TxContext
     ):Coin<LP_TOKEN<V, Y>>{
         let sui_value = coin::value(&sui);
         let token_y_value = coin::value(&token_y);
         assert!(sui_value > 0 && token_y_value > 0, ENotEnoughCoin);
 
-        let (sui_r, token_y_r, _) = get_amounts(pool);
+        let (sui_r, token_y_r, lp_supply) = get_amounts(pool);
 
-        //check whether empty
-        let (amount_a, amount_b) = if (sui_r == 0 && token_y_r == 0){
-            (sui_value, token_y_value)
+         let (amount_a, amount_b, coin_sui, coin_b) = if (sui_r == 0 && token_y_r == 0){
+            (sui_value, token_y_value, sui, token_y)
         }else{
             let opt_b  = quote(sui_r, token_y_r, sui_value);
             if (opt_b <= token_y_value){
                 assert!(opt_b > amount_b_min, EInsufficientBAmount);
-                (sui_value, opt_b)
+
+                let split_b = coin::take<Y>(coin::balance_mut<Y>( &mut token_y), opt_b, ctx);
+                transfer::transfer(token_y, tx_context::sender(ctx));
+                (sui_value, opt_b,  sui, split_b)
             }else{
-                let opt_a = quote(token_y_r, sui_r, token_y_value);
+                 let opt_a = quote(token_y_r, sui_r, token_y_value);
                 assert!(opt_a <= sui_value && opt_a > amount_a_min, EInsufficientAmount );
-                (opt_a, token_y_value)
+
+                let split_a = coin::take<SUI>(coin::balance_mut<SUI>(&mut sui), opt_b, ctx);
+                transfer::transfer(sui, tx_context::sender(ctx));
+                (opt_a, token_y_value,  split_a, token_y)
             }
         };
-        let lp_supply_value = balance::supply_value<LP_TOKEN<V, Y>>(&pool.lp_supply);
-        let reserve_sui_value = balance::value<SUI>(&pool.reserve_sui);
-        let reserve_token_y_value = balance::value<Y>(&pool.reserve_y);
-        let output = amm_math::min(
-            (sui_value * lp_supply_value / reserve_sui_value),
-            (token_y_value * lp_supply_value / reserve_token_y_value)
+
+         let lp_output = amm_math::min(
+            (amount_a * lp_supply / sui_r),
+            (amount_b * lp_supply / token_y_r)
         );
-
-        let sui_balance = coin::into_balance(sui);
-        let token_y_balance = coin::into_balance(token_y);
-
-        let sui_pool = balance::join<SUI>(&mut pool.reserve_sui, sui_balance);
-        let token_y_pool = balance::join<Y>(&mut pool.reserve_y, token_y_balance);
+        let sui_pool = balance::join<SUI>(&mut pool.reserve_sui, coin::into_balance(coin_sui));
+        let token_y_pool = balance::join<Y>(&mut pool.reserve_y,  coin::into_balance(coin_b));
 
         assert!(sui_pool < MAX_POOL_VALUE ,EFullPool);
         assert!(token_y_pool < MAX_POOL_VALUE ,EFullPool);
 
-        let output_balance = balance::increase_supply<LP_TOKEN<V, Y>>(&mut pool.lp_supply, output);
+        let output_balance = balance::increase_supply<LP_TOKEN<V, Y>>(&mut pool.lp_supply, lp_output);
         coin::from_balance(output_balance, ctx)
     }
 
@@ -262,11 +262,11 @@ module sui_lipse::amm_test{
         let scenario = test::begin(&@0x1);
         test_swap_token_y_(&mut scenario);
     }
-     #[test] fun add_liquidity() {
+     #[test] fun test_add_liquidity() {
         let scenario = test::begin(&@0x1);
         add_liquidity_(&mut scenario);
     }
-    #[test] fun remove_liquidity() {
+    #[test] fun test_remove_liquidity() {
         let scenario = test::begin(&@0x1);
         remove_liquidity_(&mut scenario);
     }
@@ -352,7 +352,8 @@ module sui_lipse::amm_test{
             let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
             let shared_pool = test::borrow_mut(&mut pool);
 
-            let output_lp = amm::add_liquidity(shared_pool,  mint<SUI>(50, ctx(test)), mint<TOKEN_Y>(50000, ctx(test)), 50, 50000, ctx(test));
+            //little round error
+            let output_lp = amm::add_liquidity(shared_pool,  mint<SUI>(50, ctx(test)), mint<TOKEN_Y>(50000, ctx(test)), (50-1), (50000-1), ctx(test));
 
             assert!(burn(output_lp)==1581, 0);
 
