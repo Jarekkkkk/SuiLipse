@@ -131,11 +131,7 @@ module sui_lipse::amm{
         let lp_value = coin::value(&lp_token);
         assert!(lp_value > 0, ENotEnoughCoin);
 
-        let (reserve_sui, reserve_y, lp_supply) = get_amounts(pool);
-
-        //let percenatge = (lp_value / lp_supply)
-        let sui_output = (reserve_sui * lp_value / lp_supply);
-        let token_y_output = (reserve_y * lp_value / lp_supply);
+        let (sui_output, token_y_output) = get_paired_tokens(pool, lp_value);
 
         balance::decrease_supply<LP_TOKEN<V,Y>>(&mut pool.lp_supply,coin::into_balance(lp_token));
         (
@@ -181,6 +177,15 @@ module sui_lipse::amm{
         (numerator / denominator)
     }
 
+    // (dx, dy) = (
+    // (lp_input/ LP_supply) * reserve_x ,
+    // // (lp_input/ LP_supply) * reserve_y
+    // )
+    public fun get_paired_tokens<V, Y>(pool:&Pool<V, Y>, lp_value:u64):(u64, u64){
+        let (sui, token_y, lp_supply) = get_amounts(pool);
+        ((sui * lp_value / lp_supply), (token_y * lp_value / lp_supply))
+    }
+
 
 
     #[test]
@@ -198,7 +203,7 @@ module sui_lipse::amm{
 #[test_only]
 module sui_lipse::amm_test{
     use sui::sui::SUI;
-    use sui::coin::{mint_for_testing as mint, destroy_for_testing as burn};
+    use sui::coin::{Self, mint_for_testing as mint, destroy_for_testing as burn};
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
     use sui_lipse::amm::{Self, Pool, LP_TOKEN};
 
@@ -266,7 +271,6 @@ module sui_lipse::amm_test{
             assert!(lp_s == 31622000,0);
             assert!(sui_price == 1000,0);
 
-
             test::return_shared(test, pool);
         }
      }
@@ -324,25 +328,32 @@ module sui_lipse::amm_test{
     }
 
     fun remove_liquidity_(test: &mut Scenario){
-        let (_, trader) = people();
+        let (owner, _) = people();
 
-        test_init_pool_(test);
-        test_swap_sui_(test);
+        test_swap_sui_(test);//Pool ( SUI_AMT + 5000, 1000000000 - 4973639)
 
-        next_tx(test, &trader);{
+        next_tx(test, &owner);{
             let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
             let shared_pool = test::borrow_mut(&mut pool);
             // (X, Y) = (5000000, 995026361)
-            let lp_token = mint<LP_TOKEN<JAREK, TOKEN_Y>>(31622000, ctx(test));
+            let (_, _, lp) = amm::get_amounts(shared_pool);
+            let lp_token = mint<LP_TOKEN<JAREK, TOKEN_Y>>(lp, ctx(test));
+            //expected
+            let (sui_withdraw, token_y_withdraw) = amm::get_paired_tokens(shared_pool, coin::value<LP_TOKEN<JAREK, TOKEN_Y>>(&lp_token));
 
             let (withdraw_sui, withdraw_token_y) = amm::remove_liquidity(shared_pool, lp_token, ctx(test));
 
-            assert!(burn(withdraw_sui) == 5000000, 0);
-            assert!(burn(withdraw_token_y) == 995026361, 0);
+            //after withdraw
+            let (sui, token_y, _) = amm::get_amounts(shared_pool);
+
+            assert!(sui == 0,0);
+            assert!(token_y== 0, 0);
+            assert!(burn(withdraw_sui) == sui_withdraw, 0);
+            assert!(burn(withdraw_token_y) == token_y_withdraw, 0);
 
             test::return_shared(test, pool);
         }
-        }
+    }
     //utilities
     fun people(): (address, address) { (@0xABCD, @0x1234 ) }
 }
