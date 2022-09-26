@@ -1,4 +1,4 @@
-module sui_lipse::math{
+module sui_lipse::amm_math{
 
     public fun sqrt(y: u64): u64 {
         if (y < 4) {
