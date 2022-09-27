@@ -5,11 +5,21 @@ module sui_lipse::amm_script{
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
 
-    const EInsufficientAmount:u64 = 6;
-    const EInsufficientBAmount:u64 = 7;
 
-    //probably should added as (friend modules)
-    public entry fun create_pool(){}
+    public entry fun create_pool<V: drop, Y>(
+    verifier:V,
+    token_sui:Coin<SUI>,
+    token_y:Coin<Y>,
+    fee_percentage:u64,
+    ctx:&mut TxContext
+    ){
+        transfer::transfer(
+            amm::create_pool(
+                verifier, token_sui, token_y, fee_percentage, ctx
+            ),
+            tx_context::sender(ctx)
+        )
+    }
 
     //it is required to input desired amounts, since sometimes the amount won't be that precise
     entry fun add_liquidity<V, Y>(

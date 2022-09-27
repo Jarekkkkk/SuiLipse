@@ -7,7 +7,7 @@ module sui_lipse::amm{
     use sui::transfer;
     use sui::event;
 
-    use sui_lipse::amm_math::{Self};
+    use sui_lipse::amm_math;
 
     const EZeroAmount:u64 = 0;
     const EInvalidFee:u64 = 1;

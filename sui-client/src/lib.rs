@@ -16,6 +16,7 @@ pub fn sqrt(y: u64) -> u64 {
         z
     }
 }
+
 pub fn sui_sqrt(x: u64) -> u64 {
     let mut bit = 1u128 << 64;
     let mut res = 0u128;
@@ -33,6 +34,7 @@ pub fn sui_sqrt(x: u64) -> u64 {
 
     (res as u64)
 }
+
 pub fn min(a: u64, b: u64) -> u64 {
     if a > b {
         b
@@ -40,12 +42,17 @@ pub fn min(a: u64, b: u64) -> u64 {
         a
     }
 }
+
 pub fn max(a: u64, b: u64) -> u64 {
     if a > b {
         a
     } else {
         b
     }
+}
+
+pub fn quote(reserve_a: u64, reserve_b: u64, input_a: u64) -> u64 {
+    (reserve_b / reserve_a) * input_a
 }
 
 pub fn get_input(dx: u64, x: u64, y: u64, f: u64) -> u64 {
@@ -56,10 +63,13 @@ pub fn get_input(dx: u64, x: u64, y: u64, f: u64) -> u64 {
     (numerator / denominator)
 }
 
-pub fn get_lp_supply(x: u64, y: u64) -> u64 {
-    sqrt(x) * sqrt(y)
-}
-
 pub fn minted_lp_after_increase_liquidity(x: u64, y: u64, dx: u64, dy: u64, lp_supply: u64) -> u64 {
     min(dx * lp_supply / x, dy * lp_supply / y)
+}
+
+pub fn withdraw_liquidity(sui_r: u64, token_y_r: u64, lp_value: u64, lp_supply: u64) -> (u64, u64) {
+    (
+        (sui_r * lp_value / lp_supply),
+        (token_y_r * lp_value / lp_supply),
+    )
 }
