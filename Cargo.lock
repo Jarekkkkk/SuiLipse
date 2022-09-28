@@ -7323,6 +7323,8 @@ name = "sui_elipse"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap 3.2.22",
+ "dirs",
  "rand 0.8.5",
  "serde 1.0.145",
  "serde_json",

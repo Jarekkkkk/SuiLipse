@@ -7,3 +7,8 @@ debug/
 target/
 .DS_Store
 **/.DS_Store
+*.txt
+
+# logs
+wallet.log.*
+sui.log.*

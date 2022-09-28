@@ -15,3 +15,5 @@ url = "2.2.2"
 anyhow = "1.0.5"
 rand = "0.8.5"
 tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread"] }
+clap = { version = "3.1.17", features = ["derive"] }
+dirs = "4.0.0"

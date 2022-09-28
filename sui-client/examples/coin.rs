@@ -1,11 +1,13 @@
 #![allow(unused)]
 
+use clap::{Parser, Subcommand};
 use serde::Deserialize;
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 use sui_sdk::{
     crypto::{KeystoreType, SuiKeystore},
     json::SuiJsonValue,
-    rpc_types::SuiData,
+    rpc_types::{SuiData, SuiTypeTag},
+    types::parse_sui_type_tag,
     types::{
         base_types::{ObjectID, SuiAddress},
         crypto::Signature,
@@ -17,12 +19,41 @@ use sui_sdk::{
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    let opts: CoinClientOpts = CoinClientOpts::parse();
+    let keystore_path = opts
+        .keystore_path
+        .clone() // this shoule be optimized
+        .unwrap_or_else(default_keystore_path);
+
+    let coin_client = CoinClient::new(&opts, keystore_path).await?;
+
+    match opts.subcommand {
+        CoinCommand::MintAndTransfer {
+            capability,
+            recipient,
+            amount,
+        } => {
+            println!("command: {:?}\n", opts);
+            println!("sender: {:?}\n", &coin_client.keystore.addresses()[0]);
+            println!(
+                "capability_object_id: {:?}\n, recipient:{:?}, \namount:{}",
+                capability,
+                recipient.unwrap(),
+                amount
+            );
+
+            coin_client
+                .mint_and_transfer(capability, recipient, amount)
+                .await?;
+        }
+    }
+
     Ok(())
 }
 
-struct Faucet {
-    treasury_cap_id: ObjectID,
-    coin_id: ObjectID,
+struct CoinClient {
+    coin_package_id: ObjectID,
+    //coin_id: ObjectID,
     client: SuiClient,
     keystore: SuiKeystore,
 }
@@ -31,34 +62,51 @@ struct Faucet {
 #[derive(Deserialize, Debug)]
 struct TreasuryCapState {
     uid: UID,
-    total_supply: u8,
+    total_supply: u64,
 }
 
-impl Faucet {
+impl CoinClient {
+    //build the CoinClient based on given cli command
+    async fn new(opts: &CoinClientOpts, keystore_path: PathBuf) -> Result<Self, anyhow::Error> {
+        let keystore = KeystoreType::File(keystore_path).init()?;
+        let coin_client = CoinClient {
+            coin_package_id: opts.coin_package_id,
+            client: SuiClient::new_rpc_client(&opts.rpc_server_url, None).await?,
+            keystore,
+        };
+
+        Ok(coin_client)
+    }
+
     async fn get_treasury_cap_state(
         &self,
         treasury_cap: ObjectID,
     ) -> Result<TreasuryCapState, anyhow::Error> {
         let treasury_cap = self.client.read_api().get_object(treasury_cap).await?;
-        treasury_cap
+        println!("cap {:?}\n", treasury_cap);
+        let obj = treasury_cap
             .object()?
             .data
             .try_as_move()
             .unwrap()
-            .deserialize()
+            .deserialize();
+
+        println!("treasuy_cap_state:{:?}", &obj);
+        obj
     }
 
     async fn mint_and_transfer(
         &self,
-        sender: Option<SuiAddress>,
-        recipient: Option<SuiAddress>,
         treasury_cap: ObjectID,
+        recipient: Option<SuiAddress>,
+        amount: u64,
     ) -> Result<(), anyhow::Error> {
         //retrieve the msg.sender in the keystore if not provided
-        let sender = sender.unwrap_or_else(|| self.keystore.addresses()[0]);
+        let sender = self.keystore.addresses()[0];
         let recipient = recipient.unwrap_or_else(|| self.keystore.addresses()[0]);
 
         let treasury_cap_state = self.get_treasury_cap_state(treasury_cap).await?;
+
         // Force a sync of signer's state in gateway.
         self.client
             .wallet_sync_api()
@@ -66,18 +114,24 @@ impl Faucet {
             .await?;
 
         //create tx
-        let amount = 1000;
+        //generic type
+        let foo = parse_sui_type_tag(
+            "0x2::balance::Supply<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>",
+        )
+        .unwrap();
+        let bar = SuiTypeTag::from(foo);
+
         let mint_and_transfer_call = self
             .client
             .transaction_builder()
             .move_call(
                 sender,
-                self.treasury_cap_id,
-                "sui",
+                self.coin_package_id,
+                "coin",
                 "mint_and_transfer",
-                vec![], //when should put type args
+                vec![bar], //"0x2::coin::TreasuryCap<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>"
                 vec![
-                    SuiJsonValue::from_str(&treasury_cap_state.uid.object_id().to_hex_literal())?,
+                    SuiJsonValue::from_str(&treasury_cap_state.uid.object_id().to_hex_literal())?, //0x2::balance::Supply<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>
                     SuiJsonValue::from_str(&amount.to_string())?, //amount
                     SuiJsonValue::from_str(&recipient.to_string())?, //recipient
                 ],
@@ -109,7 +163,47 @@ impl Faucet {
             .object_id;
 
         println!("Minted `{}` JRK Coin, object id {:?}", amount, coin_id);
+
         Ok(())
     }
     async fn burn() {}
+}
+
+// Clap command line args parser
+#[derive(Parser, Debug)]
+#[clap(
+    name = "coin-client",
+    about = "calling `coin` modules of package `sui` at address 0x0",
+    rename_all = "kebab-case"
+)]
+struct CoinClientOpts {
+    #[clap(long)]
+    coin_package_id: ObjectID,
+    #[clap(long)]
+    keystore_path: Option<PathBuf>,
+    #[clap(long, default_value = "https://gateway.devnet.sui.io:443")]
+    rpc_server_url: String,
+    #[clap(subcommand)]
+    subcommand: CoinCommand,
+}
+
+fn default_keystore_path() -> PathBuf {
+    match dirs::home_dir() {
+        Some(v) => v.join(".sui").join("sui_config").join("sui.keystore"),
+        None => panic!("Cannot obtain home directory path"),
+    }
+}
+
+#[derive(Subcommand, Debug)]
+#[clap(rename_all = "kebab-case")]
+enum CoinCommand {
+    /// Mint and Transfer Coin, make sure sender get the Capability
+    MintAndTransfer {
+        #[clap(long)]
+        capability: ObjectID,
+        #[clap(long)]
+        recipient: Option<SuiAddress>,
+        #[clap(long)]
+        amount: u64,
+    },
 }
