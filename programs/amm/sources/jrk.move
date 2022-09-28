@@ -16,4 +16,11 @@ module sui_lipse::jrk{
             tx_context::sender(ctx)
         )
     }
+
+    entry fun transfer(coin:coin::Coin<JRK>, recipient:address){
+        transfer::transfer(
+            coin,
+            recipient
+        )
+    }
 }

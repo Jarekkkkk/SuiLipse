@@ -81,29 +81,6 @@ impl CoinClient {
         Ok(coin_client)
     }
 
-    // async fn get_treasury_cap_state(
-    //     &self,
-    //     treasury_cap: ObjectID,
-    // ) -> Result<(Object, SuiObjectRef), anyhow::Error> {
-    //     let treasury_cap = self
-    //         .client
-    //         .read_api()
-    //         .get_object(treasury_cap)
-    //         .await?
-    //         .into_object()?;
-
-    //     let state: TreasuryCapState = treasury_cap.data.try_as_move().unwrap().deserialize()?;
-
-    //     println!("treasuy_cap_state:{:?}", &state);
-
-    //     let treasury_cap_reference = treasury_cap.reference.to_object_ref();
-    //     let treasury_cap: Object = treasury_cap.try_into()?;
-
-    //     //println!("cap {:?}\n", treasury_cap);
-
-    //     Ok((treasury_cap, treasury_cap_reference))
-    // }
-
     async fn mint_and_transfer(
         &self,
         treasury_cap: ObjectID,
@@ -114,9 +91,13 @@ impl CoinClient {
         let sender = self.keystore.addresses()[0];
         let recipient = recipient.unwrap_or_else(|| self.keystore.addresses()[0]);
 
-        //get the state
-        //let treasury_cap_state = self.get_treasury_cap_state(treasury_cap).await?;
+        //Force a sync of signer's state in gateway.
+        self.client
+            .wallet_sync_api()
+            .sync_account_state(sender)
+            .await?;
 
+        //get the state
         let treasury_cap_obj = self
             .client
             .read_api()
@@ -132,12 +113,6 @@ impl CoinClient {
         let treasury_cap_reference = treasury_cap_obj.reference.to_object_ref();
         let treasury_cap_obj: Object = treasury_cap_obj.try_into()?;
 
-        // Force a sync of signer's state in gateway.
-        self.client
-            .wallet_sync_api()
-            .sync_account_state(sender)
-            .await?;
-
         //create tx
 
         //generic type -- the most desireable way to retrieve the MOVE_TYPE
@@ -152,10 +127,9 @@ impl CoinClient {
                 self.coin_package_id,
                 "coin",
                 "mint_and_transfer",
-                type_args, //"0x2::coin::TreasuryCap<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>"
+                type_args,
                 vec![
-                    SuiJsonValue::from_str(&treasury_cap_state.uid.object_id().to_hex_literal())?, //0x2::balance::Supply<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>
-                    SuiJsonValue::from_str(&amount.to_string())?, //amount
+                    SuiJsonValue::from_str(&amount.to_string())?,
                     SuiJsonValue::from_str(&recipient.to_string())?, //recipient
                 ],
                 None, // The gateway server will pick a gas object belong to the signer if not provided.
@@ -189,6 +163,8 @@ impl CoinClient {
 
         Ok(())
     }
+    async fn merge() {}
+    async fn split() {}
     async fn burn() {}
 }
 
