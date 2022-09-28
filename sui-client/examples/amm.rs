@@ -16,13 +16,6 @@ use sui_sdk::{
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let args: Vec<String> = env::args().collect();
-    println!("args{}", args[0]);
-    println!("args{}", &args[1]);
-    let sui = SuiClient::new_rpc_client("https://gateway.devnet.sui.io:443", None).await?;
-    let address = SuiAddress::from_str("0xb73c836b1dfa662b67fd02aaba9fe1b52facf127")?;
-    let objects = sui.read_api().get_objects_owned_by_address(address).await?;
-    println!("{:?}", objects);
     Ok(())
 }
 
@@ -30,4 +23,12 @@ struct Pool {
     pool_id: ObjectID,
     client: SuiClient,
     keystore: SuiKeystore,
+}
+
+impl Pool {
+    async fn create_pool(){}
+    async fn add_liquidity(){}
+    async fn remove_liquidity(){}
+    async fn swap_sui(){}
+    async fn swap_token_y(){}
 }

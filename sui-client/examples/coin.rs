@@ -2,20 +2,23 @@
 
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
-use std::{path::PathBuf, str::FromStr};
+use std::{convert::TryInto, path::PathBuf, str::FromStr};
 use sui_sdk::{
     crypto::{KeystoreType, SuiKeystore},
     json::SuiJsonValue,
-    rpc_types::{SuiData, SuiTypeTag},
+    rpc_types::{SuiData, SuiObjectRef, SuiTypeTag},
     types::parse_sui_type_tag,
     types::{
         base_types::{ObjectID, SuiAddress},
         crypto::Signature,
         id::UID,
         messages::Transaction,
+        object::Object,
     },
     SuiClient,
 };
+
+//TODO: add env file
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -36,7 +39,7 @@ async fn main() -> Result<(), anyhow::Error> {
             println!("command: {:?}\n", opts);
             println!("sender: {:?}\n", &coin_client.keystore.addresses()[0]);
             println!(
-                "capability_object_id: {:?}\n, recipient:{:?}, \namount:{}",
+                "capability_object_id:{:?}, \nrecipient:{:?}, \namount:{}",
                 capability,
                 recipient.unwrap(),
                 amount
@@ -78,22 +81,28 @@ impl CoinClient {
         Ok(coin_client)
     }
 
-    async fn get_treasury_cap_state(
-        &self,
-        treasury_cap: ObjectID,
-    ) -> Result<TreasuryCapState, anyhow::Error> {
-        let treasury_cap = self.client.read_api().get_object(treasury_cap).await?;
-        println!("cap {:?}\n", treasury_cap);
-        let obj = treasury_cap
-            .object()?
-            .data
-            .try_as_move()
-            .unwrap()
-            .deserialize();
+    // async fn get_treasury_cap_state(
+    //     &self,
+    //     treasury_cap: ObjectID,
+    // ) -> Result<(Object, SuiObjectRef), anyhow::Error> {
+    //     let treasury_cap = self
+    //         .client
+    //         .read_api()
+    //         .get_object(treasury_cap)
+    //         .await?
+    //         .into_object()?;
 
-        println!("treasuy_cap_state:{:?}", &obj);
-        obj
-    }
+    //     let state: TreasuryCapState = treasury_cap.data.try_as_move().unwrap().deserialize()?;
+
+    //     println!("treasuy_cap_state:{:?}", &state);
+
+    //     let treasury_cap_reference = treasury_cap.reference.to_object_ref();
+    //     let treasury_cap: Object = treasury_cap.try_into()?;
+
+    //     //println!("cap {:?}\n", treasury_cap);
+
+    //     Ok((treasury_cap, treasury_cap_reference))
+    // }
 
     async fn mint_and_transfer(
         &self,
@@ -105,7 +114,23 @@ impl CoinClient {
         let sender = self.keystore.addresses()[0];
         let recipient = recipient.unwrap_or_else(|| self.keystore.addresses()[0]);
 
-        let treasury_cap_state = self.get_treasury_cap_state(treasury_cap).await?;
+        //get the state
+        //let treasury_cap_state = self.get_treasury_cap_state(treasury_cap).await?;
+
+        let treasury_cap_obj = self
+            .client
+            .read_api()
+            .get_object(treasury_cap)
+            .await?
+            .into_object()?;
+
+        let treasury_cap_state: TreasuryCapState =
+            treasury_cap_obj.data.try_as_move().unwrap().deserialize()?;
+
+        println!("treasuy_cap_state:{:?}", &treasury_cap_state);
+
+        let treasury_cap_reference = treasury_cap_obj.reference.to_object_ref();
+        let treasury_cap_obj: Object = treasury_cap_obj.try_into()?;
 
         // Force a sync of signer's state in gateway.
         self.client
@@ -114,12 +139,10 @@ impl CoinClient {
             .await?;
 
         //create tx
-        //generic type
-        let foo = parse_sui_type_tag(
-            "0x2::balance::Supply<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>",
-        )
-        .unwrap();
-        let bar = SuiTypeTag::from(foo);
+
+        //generic type -- the most desireable way to retrieve the MOVE_TYPE
+        let treasury_cap_type = treasury_cap_obj.get_move_template_type()?;
+        let type_args = vec![SuiTypeTag::from(treasury_cap_type)];
 
         let mint_and_transfer_call = self
             .client
@@ -129,7 +152,7 @@ impl CoinClient {
                 self.coin_package_id,
                 "coin",
                 "mint_and_transfer",
-                vec![bar], //"0x2::coin::TreasuryCap<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>"
+                type_args, //"0x2::coin::TreasuryCap<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>"
                 vec![
                     SuiJsonValue::from_str(&treasury_cap_state.uid.object_id().to_hex_literal())?, //0x2::balance::Supply<0xca269a2deb69fed64a2729eb574d558b9394446::jrk::JRK>
                     SuiJsonValue::from_str(&amount.to_string())?, //amount
@@ -173,7 +196,7 @@ impl CoinClient {
 #[derive(Parser, Debug)]
 #[clap(
     name = "coin-client",
-    about = "calling `coin` modules of package `sui` at address 0x0",
+    about = "calling `coin` modules of package `sui` at address 0x2",
     rename_all = "kebab-case"
 )]
 struct CoinClientOpts {
@@ -189,7 +212,12 @@ struct CoinClientOpts {
 
 fn default_keystore_path() -> PathBuf {
     match dirs::home_dir() {
-        Some(v) => v.join(".sui").join("sui_config").join("sui.keystore"),
+        ///$HOME/dev/sui/SuiLipse
+        Some(v) => v
+            .join("dev")
+            .join("sui")
+            .join("SuiLipse")
+            .join("sui.keystore"),
         None => panic!("Cannot obtain home directory path"),
     }
 }
