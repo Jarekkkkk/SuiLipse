@@ -6,6 +6,7 @@ module sui_lipse::amm{
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui::event;
+    use std::string::{Self, String};
 
     use sui_lipse::amm_math;
 
@@ -34,8 +35,8 @@ module sui_lipse::amm{
     //Initially, pool should all be exchanged 'in SUI based'
     struct Pool<phantom V, phantom Y> has key{
         id:UID,
-        // name
-        // symbol
+        name:String,
+        symbol:String,
         reserve_sui:Balance<SUI>,
         reserve_y:Balance<Y>,
         lp_supply:Supply<LP_TOKEN<V,Y>>,
@@ -74,6 +75,8 @@ module sui_lipse::amm{
         token_sui:Coin<SUI>,
         token_y:Coin<Y>,
         fee_percentage:u64,
+        name:vector<u8>,
+        symbol:vector<u8>,
         ctx:&mut TxContext
     ):Coin<LP_TOKEN<V,Y>> {
         let sui_value = coin::value(&token_sui);
@@ -93,7 +96,9 @@ module sui_lipse::amm{
             reserve_sui:coin::into_balance(token_sui),
             reserve_y:coin::into_balance(token_y),
             lp_supply,
-            fee_percentage
+            fee_percentage,
+            name:string::utf8(name),
+            symbol:string::utf8(symbol),
         };
          event::emit(
             PoolCreated{pool:object::id(&pool)}
@@ -319,6 +324,8 @@ module sui_lipse::amm_test{
                 mint<SUI>(SUI_AMT, ctx(test)),
                 mint<TOKEN_Y>(TOKEN_Y_AMT, ctx(test)),
                 3,
+                b"jarek's pool",
+                b"SUI-JRK",
                 ctx(test)
             );
 

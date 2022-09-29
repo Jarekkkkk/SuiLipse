@@ -37,7 +37,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let coin_client = CoinClient::new(&opts, coin_pkg, keystore_path).await?;
 
-    println!("signer\n: {:?}\n", &coin_client.keystore.addresses()[0]);
+    println!("signer\n: {:?}\n", &coin_client.get_signer(1));
 
     match opts.subcommand {
         CoinCommand::MintAndTransfer {
@@ -55,19 +55,15 @@ async fn main() -> Result<(), anyhow::Error> {
                 .mint_and_transfer(capability, recipient, amount)
                 .await?;
         }
-        CoinCommand::Transfer {
-            coin,
-            recipient,
-            amount,
-        } => {
+        CoinCommand::Transfer { coin, recipient } => {
             println!("\nopts\n: {:?}\n", opts);
             println!("client\n: {:?}\n", coin_client.coin_package_id);
-            println!(
-                "coin_id:{:?}, \nrecipient:{:?}, \namount:{}",
-                coin,
-                recipient.unwrap(),
-                amount
-            );
+            println!("coin_id:{:?}, \nrecipient:{:?}", coin, recipient.unwrap(),);
+
+            coin_client.transfer(coin, recipient).await?;
+        }
+        CoinCommand::Join { coin_a, coin_b } => {
+            coin_client.join(coin_a, coin_b).await?;
         }
     }
 
@@ -101,6 +97,7 @@ trait CoinScript: Sized {
         coin_pkg: ObjectID,
         keystore_path: PathBuf,
     ) -> Result<Self, anyhow::Error>;
+    fn get_signer(&self, idx: usize) -> SuiAddress;
     async fn mint_and_transfer(
         &self,
         treasury_cap: ObjectID,
@@ -110,8 +107,9 @@ trait CoinScript: Sized {
     async fn transfer(
         &self,
         object_id: ObjectID,
-        recipient: SuiAddress,
+        recipient: Option<SuiAddress>,
     ) -> Result<(), anyhow::Error>;
+    async fn join(&self, coin_a: ObjectID, coin_b: ObjectID) -> Result<(), anyhow::Error>;
     fn split_and_transfer(&self) {}
     fn burn() {}
     //retrieve the genreic type coin
@@ -134,6 +132,9 @@ impl CoinScript for CoinClient {
 
         Ok(coin_client)
     }
+    fn get_signer(&self, idx: usize) -> SuiAddress {
+        self.keystore.addresses()[idx]
+    }
     async fn mint_and_transfer(
         &self,
         treasury_cap: ObjectID,
@@ -141,14 +142,8 @@ impl CoinScript for CoinClient {
         amount: u64,
     ) -> Result<(), anyhow::Error> {
         //retrieve the msg.sender in the keystore if not provided
-        let sender = self.keystore.addresses()[0];
-        let recipient = recipient.unwrap_or_else(|| self.keystore.addresses()[0]);
-
-        //Force a sync of signer's state in gateway.
-        self.client
-            .wallet_sync_api()
-            .sync_account_state(sender)
-            .await?;
+        let sender = self.get_signer(1);
+        let recipient = recipient.unwrap_or(sender);
 
         //get the state
         let treasury_cap_obj = self
@@ -157,14 +152,18 @@ impl CoinScript for CoinClient {
             .get_object(treasury_cap)
             .await?
             .into_object()?;
-
+        let treasury_cap_reference = treasury_cap_obj.reference.to_object_ref();
         let treasury_cap_state: TreasuryCapState =
             treasury_cap_obj.data.try_as_move().unwrap().deserialize()?;
-
         println!("treasuy_cap_state:{:?}", &treasury_cap_state);
 
-        let treasury_cap_reference = treasury_cap_obj.reference.to_object_ref();
         let treasury_cap_obj: Object = treasury_cap_obj.try_into()?;
+
+        //Force a sync of signer's state in gateway.
+        self.client
+            .wallet_sync_api()
+            .sync_account_state(sender)
+            .await?;
 
         //create tx
 
@@ -182,7 +181,7 @@ impl CoinScript for CoinClient {
                 "mint_and_transfer",
                 type_args,
                 vec![
-                    SuiJsonValue::from_str(&treasury_cap_state.uid.object_id().to_hex_literal())?,
+                    SuiJsonValue::from_str(&treasury_cap_reference.0.to_string())?,
                     SuiJsonValue::from_str(&amount.to_string())?,
                     SuiJsonValue::from_str(&recipient.to_string())?, //recipient
                 ],
@@ -197,14 +196,12 @@ impl CoinScript for CoinClient {
         // sign the tx
         let signature = Signature::new(&mint_and_transfer_call, &signer);
 
-        print!("response start");
         //execute the tx
         let response = self
             .client
             .quorum_driver()
             .execute_transaction(Transaction::new(mint_and_transfer_call, signature))
             .await?;
-        print!("response end");
         //render the response
         let coin_id = response
             .effects
@@ -218,12 +215,17 @@ impl CoinScript for CoinClient {
 
         Ok(())
     }
-    async fn transfer(&self, coin: ObjectID, recipient: SuiAddress) -> Result<(), anyhow::Error> {
-        let sender = self.keystore.addresses()[0];
+    async fn transfer(
+        &self,
+        coin: ObjectID,
+        recipient: Option<SuiAddress>,
+    ) -> Result<(), anyhow::Error> {
+        let signer = self.keystore.addresses()[1];
+        let recipient = recipient.unwrap_or(signer);
 
         self.client
             .wallet_sync_api()
-            .sync_account_state(sender)
+            .sync_account_state(signer)
             .await?;
 
         //get the state
@@ -246,6 +248,112 @@ impl CoinScript for CoinClient {
         //generic type -- the most desireable way to retrieve the MOVE_TYPE
         let coin_type = coin_obj.get_move_template_type()?;
         let type_args = vec![SuiTypeTag::from(coin_type)];
+
+        let transfer_call = self
+            .client
+            .transaction_builder()
+            .transfer_object(signer, *coin_state.uid.object_id(), None, 1000, recipient)
+            .await?;
+
+        let signer = self.keystore.signer(signer);
+
+        let signature = Signature::new(&transfer_call, &signer);
+
+        let response = self
+            .client
+            .quorum_driver()
+            .execute_transaction(Transaction::new(transfer_call, signature))
+            .await?;
+
+        let coin_id = response
+            .effects
+            .created
+            .first() //first created object in this tx
+            .expect("decode created coin")
+            .reference
+            .object_id;
+
+        println!("tranfer obj_id `{}` to {:?}", coin_id, recipient);
+
+        Ok(())
+    }
+    async fn join(&self, coin_a: ObjectID, coin_b: ObjectID) -> Result<(), anyhow::Error> {
+        let signer = self.keystore.addresses()[1];
+
+        self.client
+            .wallet_sync_api()
+            .sync_account_state(signer)
+            .await?;
+
+        let api = self.client.read_api();
+
+        //get the state
+        let coin_a = api.get_object(coin_a).await?.into_object()?;
+
+        let coin_a_state: CoinState = coin_a.data.try_as_move().unwrap().deserialize()?;
+        println!("coin_a_state:{:?}", &coin_a_state);
+
+        let coin_a_reference = coin_a.reference.to_object_ref();
+
+        let coin_b_reference = api
+            .get_object(coin_b)
+            .await?
+            .into_object()?
+            .reference
+            .to_object_ref();
+
+        let coin_a: Object = coin_a.try_into()?;
+        //create tx
+
+        //generic type -- the most desireable way to retrieve the MOVE_TYPE
+        let coin_type = coin_a.get_move_template_type()?;
+        let type_args = vec![SuiTypeTag::from(coin_type)];
+
+        let join_call = self
+            .client
+            .transaction_builder()
+            .move_call(
+                signer,
+                self.coin_package_id,
+                "coin",
+                "join",
+                type_args,
+                vec![
+                    SuiJsonValue::from_str(&coin_a_reference.0.to_string())?,
+                    SuiJsonValue::from_str(&coin_b_reference.0.to_string())?,
+                ],
+                None, // The gateway server will pick a gas object belong to the signer if not provided.
+                1000,
+            )
+            .await?;
+
+        let signer = self.keystore.signer(signer);
+
+        let signature = Signature::new(&join_call, &signer);
+
+        let response = self
+            .client
+            .quorum_driver()
+            .execute_transaction(Transaction::new(join_call, signature))
+            .await?;
+        let status = response.effects.status;
+        if status.is_err() {
+            eprintln!("\nErr: {:?}", status)
+        }
+
+        let coin_id = response
+            .effects
+            .created
+            .first() //first created object in this tx
+            .expect("decode joined coin")
+            .reference
+            .object_id;
+
+        println!(
+            "merge coin `{}` to {:?}",
+            coin_id,
+            &coin_b_reference.0.to_string()
+        );
 
         Ok(())
     }
@@ -297,8 +405,13 @@ enum CoinCommand {
         coin: ObjectID,
         #[clap(long)]
         recipient: Option<SuiAddress>,
+    },
+    /// Merge coin_b to coin_a
+    Join {
         #[clap(long)]
-        amount: u64,
+        coin_a: ObjectID,
+        #[clap(long)]
+        coin_b: ObjectID,
     },
 }
 //TODO: add clear printed format for cli response
