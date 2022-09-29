@@ -37,12 +37,20 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let coin_client = CoinClient::new(&opts, coin_pkg, keystore_path).await?;
 
+    println!("signer\n: {:?}\n", &coin_client.keystore.addresses()[0]);
+
     match opts.subcommand {
         CoinCommand::MintAndTransfer {
             capability,
             recipient,
             amount,
         } => {
+            println!(
+                "coin_id:{:?}, \nrecipient:{:?}, \namount:{}",
+                capability,
+                recipient.unwrap(),
+                amount
+            );
             coin_client
                 .mint_and_transfer(capability, recipient, amount)
                 .await?;
@@ -54,7 +62,6 @@ async fn main() -> Result<(), anyhow::Error> {
         } => {
             println!("\nopts\n: {:?}\n", opts);
             println!("client\n: {:?}\n", coin_client.coin_package_id);
-            println!("sender\n: {:?}\n", &coin_client.keystore.addresses()[0]);
             println!(
                 "coin_id:{:?}, \nrecipient:{:?}, \namount:{}",
                 coin,
@@ -175,6 +182,7 @@ impl CoinScript for CoinClient {
                 "mint_and_transfer",
                 type_args,
                 vec![
+                    SuiJsonValue::from_str(&treasury_cap_state.uid.object_id().to_hex_literal())?,
                     SuiJsonValue::from_str(&amount.to_string())?,
                     SuiJsonValue::from_str(&recipient.to_string())?, //recipient
                 ],
@@ -189,19 +197,20 @@ impl CoinScript for CoinClient {
         // sign the tx
         let signature = Signature::new(&mint_and_transfer_call, &signer);
 
+        print!("response start");
         //execute the tx
         let response = self
             .client
             .quorum_driver()
             .execute_transaction(Transaction::new(mint_and_transfer_call, signature))
             .await?;
-
+        print!("response end");
         //render the response
         let coin_id = response
             .effects
             .created
             .first() //first created object in this tx
-            .unwrap()
+            .expect("decode created coin")
             .reference
             .object_id;
 
@@ -263,12 +272,8 @@ struct CoinClientOpts {
 
 fn default_keystore_path() -> PathBuf {
     match dirs::home_dir() {
-        ///$HOME/dev/sui/SuiLipse
-        Some(v) => v
-            .join("dev")
-            .join("sui")
-            .join("SuiLipse")
-            .join("sui.keystore"),
+        ///$HOME/.sui/sui_config/sui.keystore
+        Some(v) => v.join(".sui").join("sui_config").join("sui.keystore"),
         None => panic!("Cannot obtain home directory path"),
     }
 }
