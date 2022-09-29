@@ -7323,6 +7323,7 @@ name = "sui_elipse"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap 3.2.22",
  "dirs",
  "rand 0.8.5",

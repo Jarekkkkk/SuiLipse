@@ -17,10 +17,10 @@ module sui_lipse::jrk{
         )
     }
 
-    entry fun transfer(coin:coin::Coin<JRK>, recipient:address){
-        transfer::transfer(
-            coin,
-            recipient
-        )
-    }
+    //entry fun transfer(coin:coin::Coin<JRK>, recipient:address){
+    //    transfer::transfer(
+    //        coin,
+    //        recipient
+    //    )
+    //}
 }

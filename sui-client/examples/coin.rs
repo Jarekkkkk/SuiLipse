@@ -12,11 +12,13 @@ use sui_sdk::{
         base_types::{ObjectID, SuiAddress},
         crypto::Signature,
         id::UID,
-        messages::Transaction,
+        messages::{SingleTransactionKind, Transaction},
         object::Object,
     },
     SuiClient,
 };
+
+use async_trait::async_trait;
 
 //TODO: add env file
 
@@ -25,10 +27,15 @@ async fn main() -> Result<(), anyhow::Error> {
     let opts: CoinClientOpts = CoinClientOpts::parse();
     let keystore_path = opts
         .keystore_path
-        .clone() // this shoule be optimized
+        .clone() // clone should be omit
         .unwrap_or_else(default_keystore_path);
 
-    let coin_client = CoinClient::new(&opts, keystore_path).await?;
+    let coin_pkg = opts
+        .coin_package_id
+        .clone()
+        .unwrap_or(ObjectID::from_hex_literal("0x2")?);
+
+    let coin_client = CoinClient::new(&opts, coin_pkg, keystore_path).await?;
 
     match opts.subcommand {
         CoinCommand::MintAndTransfer {
@@ -36,18 +43,24 @@ async fn main() -> Result<(), anyhow::Error> {
             recipient,
             amount,
         } => {
-            println!("command: {:?}\n", opts);
-            println!("sender: {:?}\n", &coin_client.keystore.addresses()[0]);
-            println!(
-                "capability_object_id:{:?}, \nrecipient:{:?}, \namount:{}",
-                capability,
-                recipient.unwrap(),
-                amount
-            );
-
             coin_client
                 .mint_and_transfer(capability, recipient, amount)
                 .await?;
+        }
+        CoinCommand::Transfer {
+            coin,
+            recipient,
+            amount,
+        } => {
+            println!("\nopts\n: {:?}\n", opts);
+            println!("client\n: {:?}\n", coin_client.coin_package_id);
+            println!("sender\n: {:?}\n", &coin_client.keystore.addresses()[0]);
+            println!(
+                "coin_id:{:?}, \nrecipient:{:?}, \namount:{}",
+                coin,
+                recipient.unwrap(),
+                amount
+            );
         }
     }
 
@@ -63,24 +76,57 @@ struct CoinClient {
 
 //mirror object from move language
 #[derive(Deserialize, Debug)]
+struct CoinState {
+    uid: UID,
+    balance: u64,
+}
+#[derive(Deserialize, Debug)]
 struct TreasuryCapState {
     uid: UID,
     total_supply: u64,
 }
 
-impl CoinClient {
-    //build the CoinClient based on given cli command
-    async fn new(opts: &CoinClientOpts, keystore_path: PathBuf) -> Result<Self, anyhow::Error> {
+/// on-chain scripts for any `ERC20 fungible token`
+#[async_trait]
+trait CoinScript: Sized {
+    async fn new(
+        opts: &CoinClientOpts,
+        coin_pkg: ObjectID,
+        keystore_path: PathBuf,
+    ) -> Result<Self, anyhow::Error>;
+    async fn mint_and_transfer(
+        &self,
+        treasury_cap: ObjectID,
+        recipient: Option<SuiAddress>,
+        amount: u64,
+    ) -> Result<(), anyhow::Error>;
+    async fn transfer(
+        &self,
+        object_id: ObjectID,
+        recipient: SuiAddress,
+    ) -> Result<(), anyhow::Error>;
+    fn split_and_transfer(&self) {}
+    fn burn() {}
+    //retrieve the genreic type coin
+    //fn get_move_type();
+}
+
+#[async_trait]
+impl CoinScript for CoinClient {
+    async fn new(
+        opts: &CoinClientOpts,
+        coin_pkg: ObjectID,
+        keystore_path: PathBuf,
+    ) -> Result<Self, anyhow::Error> {
         let keystore = KeystoreType::File(keystore_path).init()?;
         let coin_client = CoinClient {
-            coin_package_id: opts.coin_package_id,
+            coin_package_id: coin_pkg,
             client: SuiClient::new_rpc_client(&opts.rpc_server_url, None).await?,
             keystore,
         };
 
         Ok(coin_client)
     }
-
     async fn mint_and_transfer(
         &self,
         treasury_cap: ObjectID,
@@ -163,9 +209,37 @@ impl CoinClient {
 
         Ok(())
     }
-    async fn merge() {}
-    async fn split() {}
-    async fn burn() {}
+    async fn transfer(&self, coin: ObjectID, recipient: SuiAddress) -> Result<(), anyhow::Error> {
+        let sender = self.keystore.addresses()[0];
+
+        self.client
+            .wallet_sync_api()
+            .sync_account_state(sender)
+            .await?;
+
+        //get the state
+        let coin_obj = self
+            .client
+            .read_api()
+            .get_object(coin)
+            .await?
+            .into_object()?;
+
+        let coin_state: CoinState = coin_obj.data.try_as_move().unwrap().deserialize()?;
+
+        println!("treasuy_cap_state:{:?}", &coin_state);
+
+        let coin_reference = coin_obj.reference.to_object_ref();
+        let coin_obj: Object = coin_obj.try_into()?;
+
+        //create tx
+
+        //generic type -- the most desireable way to retrieve the MOVE_TYPE
+        let coin_type = coin_obj.get_move_template_type()?;
+        let type_args = vec![SuiTypeTag::from(coin_type)];
+
+        Ok(())
+    }
 }
 
 // Clap command line args parser
@@ -176,8 +250,9 @@ impl CoinClient {
     rename_all = "kebab-case"
 )]
 struct CoinClientOpts {
+    //TODO: without input coin package "0x2"
     #[clap(long)]
-    coin_package_id: ObjectID,
+    coin_package_id: Option<ObjectID>,
     #[clap(long)]
     keystore_path: Option<PathBuf>,
     #[clap(long, default_value = "https://gateway.devnet.sui.io:443")]
@@ -201,7 +276,7 @@ fn default_keystore_path() -> PathBuf {
 #[derive(Subcommand, Debug)]
 #[clap(rename_all = "kebab-case")]
 enum CoinCommand {
-    /// Mint and Transfer Coin, make sure sender get the Capability
+    /// Mint and Transfer Coin with signer holding Capability
     MintAndTransfer {
         #[clap(long)]
         capability: ObjectID,
@@ -210,4 +285,15 @@ enum CoinCommand {
         #[clap(long)]
         amount: u64,
     },
+    /// Transger Coin
+    Transfer {
+        //Questions: is that possible to insert dynamic sized vector input
+        #[clap(long)]
+        coin: ObjectID,
+        #[clap(long)]
+        recipient: Option<SuiAddress>,
+        #[clap(long)]
+        amount: u64,
+    },
 }
+//TODO: add clear printed format for cli response
