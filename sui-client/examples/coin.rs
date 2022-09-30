@@ -1,8 +1,10 @@
 #![allow(unused)]
 
+use async_trait::async_trait;
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use std::{convert::TryInto, path::PathBuf, str::FromStr};
+use sui_elipse::default_keystore_path;
 use sui_sdk::{
     crypto::{KeystoreType, SuiKeystore},
     json::SuiJsonValue,
@@ -17,14 +19,14 @@ use sui_sdk::{
     },
     SuiClient,
 };
-
-use async_trait::async_trait;
+const SUI_FRAMEWORK: &str = "0x2";
 
 //TODO: add env file
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let opts: CoinClientOpts = CoinClientOpts::parse();
+
     let keystore_path = opts
         .keystore_path
         .clone() // clone should be omit
@@ -33,7 +35,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let coin_pkg = opts
         .coin_package_id
         .clone()
-        .unwrap_or(ObjectID::from_hex_literal("0x2")?);
+        .unwrap_or(ObjectID::from_hex_literal(SUI_FRAMEWORK)?);
 
     let coin_client = CoinClient::new(&opts, coin_pkg, keystore_path).await?;
 
@@ -376,14 +378,6 @@ struct CoinClientOpts {
     rpc_server_url: String,
     #[clap(subcommand)]
     subcommand: CoinCommand,
-}
-
-fn default_keystore_path() -> PathBuf {
-    match dirs::home_dir() {
-        ///$HOME/.sui/sui_config/sui.keystore
-        Some(v) => v.join(".sui").join("sui_config").join("sui.keystore"),
-        None => panic!("Cannot obtain home directory path"),
-    }
 }
 
 #[derive(Subcommand, Debug)]

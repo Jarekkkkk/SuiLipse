@@ -4,23 +4,23 @@ module sui_lipse::amm_script{
     use sui::sui::SUI;
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
-    use std::string;
-    use std::ascii;
-    use sui::object::{Self, UID, ID};
+    use sui::object::{ ID};
     use sui::vec_set::VecSet;
+    use sui_lipse::nft::{Self, JarekNFT};
+
+    //friend sui_lipse::nft;
 
 
     struct CardCollection has store {
         objects: VecSet<ID>,
         max_capacity: u64, //current capacity is limited, for efficient consideration
-
     }
 
     //make this object is untradable, wrapped it to the obj owned by programs
-    struct Card has key{
-        id: UID,
-        name: string::String,
-        symbol: ascii::String,
+
+
+    entry fun change_card(self: &mut JarekNFT, new_url:vector<u8>){
+        nft::update_nft(self, new_url);
     }
 
     public entry fun create_pool<V: drop, Y>(
@@ -39,19 +39,16 @@ module sui_lipse::amm_script{
             tx_context::sender(ctx)
         );
         transfer::transfer(
-            Card{
-                id: object::new(ctx),
-                name: string::utf8(name),
-                symbol: ascii::string(symbol)
-            },
+            nft::mint_nft_(
+                b"Jarek_AMM",
+                b"This is Jarek's collection, but from pool creation",
+                b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",
+                ctx
+            ),
             tx_context::sender(ctx)
         )
     }
 
-    entry fun change_card(self: &mut Card, name:vector<u8>, symbol:vector<u8>){
-        self.name = string::utf8(name);
-        self.symbol = ascii::string(symbol);
-    }
 
     //it is required to input desired amounts, since sometimes the amount won't be that precise
     entry fun add_liquidity<V, Y>(

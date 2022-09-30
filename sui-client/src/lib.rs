@@ -1,4 +1,6 @@
 #![allow(unused)]
+use dirs;
+use std::path::PathBuf;
 pub fn sqrt(y: u64) -> u64 {
     if (y < 4) {
         if (y == 0) {
@@ -72,4 +74,12 @@ pub fn withdraw_liquidity(sui_r: u64, token_y_r: u64, lp_value: u64, lp_supply: 
         (sui_r * lp_value / lp_supply),
         (token_y_r * lp_value / lp_supply),
     )
+}
+
+pub fn default_keystore_path() -> PathBuf {
+    match dirs::home_dir() {
+        ///$HOME/.sui/sui_config/sui.keystore
+        Some(v) => v.join(".sui").join("sui_config").join("sui.keystore"),
+        None => panic!("Cannot obtain home directory path"),
+    }
 }
