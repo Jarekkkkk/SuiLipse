@@ -19,12 +19,12 @@ use sui_sdk::{
     },
     SuiClient,
 };
-const SUI_FRAMEWORK: &str = "0x2";
 
-//TODO: add env file
+use dotenv::dotenv;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    dotenv().ok();
     let opts: CoinClientOpts = CoinClientOpts::parse();
 
     let keystore_path = opts
@@ -35,7 +35,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let coin_pkg = opts
         .coin_package_id
         .clone()
-        .unwrap_or(ObjectID::from_hex_literal(SUI_FRAMEWORK)?);
+        .unwrap_or(ObjectID::from_hex_literal(
+            &std::env::var("SUI").expect("should get SUI FRAMEWORK"),
+        )?);
 
     let coin_client = CoinClient::new(&opts, coin_pkg, keystore_path).await?;
 

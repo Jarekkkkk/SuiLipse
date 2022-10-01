@@ -8,8 +8,6 @@ module sui_lipse::amm_script{
     use sui::vec_set::VecSet;
     use sui_lipse::nft::{Self, JarekNFT};
 
-    //friend sui_lipse::nft;
-
 
     struct CardCollection has store {
         objects: VecSet<ID>,
@@ -39,6 +37,7 @@ module sui_lipse::amm_script{
             tx_context::sender(ctx)
         );
         transfer::transfer(
+            // introduce inner function of other module by being being declared as 'friend'
             nft::mint_nft_(
                 b"Jarek_AMM",
                 b"This is Jarek's collection, but from pool creation",

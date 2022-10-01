@@ -5,6 +5,7 @@ module sui_lipse::nft{
     use sui::event;
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
+
     friend sui_lipse::amm_script;
 
     const PREFIX:vector<u8> = b"data:image/svg+xml;base64,";

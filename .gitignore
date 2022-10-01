@@ -14,4 +14,4 @@ wallet.log.*
 sui.log.*
 
 # key
-sui.keystore
+.env

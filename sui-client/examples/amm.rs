@@ -25,11 +25,12 @@ use sui_sdk::{
 };
 
 use async_trait::async_trait;
+use dotenv::dotenv;
 use sui_elipse::default_keystore_path;
-const SUI_LIPSE: &str = "0x24ca9e97e43aa83111be28ce1a280214238ebfa7";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    dotenv().ok();
     let opts: AmmClientOpts = AmmClientOpts::parse();
 
     let keystore_path = opts
@@ -40,25 +41,27 @@ async fn main() -> Result<(), anyhow::Error> {
     let suilipse_pkg = opts
         .suilipse_packagae_id
         .clone()
-        .unwrap_or(ObjectID::from_hex_literal(SUI_LIPSE)?);
+        .unwrap_or(ObjectID::from_hex_literal(
+            &std::env::var("NFT").expect("should get SUI FRAMEWORK"),
+        )?);
 
-    let pool_client = PoolClient::new(&opts, suilipse_pkg, keystore_path).await?;
+    let amm_client = AmmClient::new(&opts, suilipse_pkg, keystore_path).await?;
 
-    println!("signer\n: {:?}\n", &pool_client.get_signer(1));
+    println!("signer\n: {:?}\n", &amm_client.get_signer(1));
 
     match opts.subcommand {
-        AmmCommand::ChangeCard { card, name, symbol } => {
+        AmmCommand::ChangeCard { card, url } => {
+            let url = url.unwrap();
             println!("card {:?}", card);
-            println!("name {:?}", name.unwrap());
-            println!("symbol {:?}", symbol);
+            println!("name {:?}", url);
 
-            pool_client.update_svg(nft, contents).await?;
+            amm_client.change_card(card, &url).await?;
         }
     }
     Ok(())
 }
 
-struct PoolClient {
+struct AmmClient {
     pool_package_id: ObjectID,
     client: SuiClient,
     keystore: SuiKeystore,
@@ -82,22 +85,23 @@ trait PoolScript: Sized {
     async fn swap_token_y() -> Result<(), anyhow::Error>;
 }
 
-impl PoolClient {
+impl AmmClient {
     async fn new(
         opts: &AmmClientOpts,
         pool_package_id: ObjectID,
         keystore_path: PathBuf,
     ) -> Result<Self, anyhow::Error> {
         let keystore = KeystoreType::File(keystore_path).init()?;
-        let pool_client = Self {
+        let amm_client = Self {
             pool_package_id,
             client: SuiClient::new_rpc_client(&opts.rpc_server_url, None).await?,
             keystore,
         };
 
-        Ok(pool_client)
+        Ok(amm_client)
     }
-    pub fn load_svg_file(path: &str) -> PathBuf {
+
+    pub fn load_file(path: &str) -> PathBuf {
         match dirs::home_dir() {
             ///$HOME/dev/sui/SuiLipse
             Some(v) => v.join("dev").join("sui").join("SuiLipse").join(path),
@@ -109,7 +113,7 @@ impl PoolClient {
         self.keystore.addresses()[idx]
     }
 
-    async fn update_svg(&self, nft: ObjectID, content: String) -> Result<(), anyhow::Error> {
+    async fn change_card(&self, nft: ObjectID, url: &str) -> Result<(), anyhow::Error> {
         let signer = self.keystore.addresses()[1];
 
         self.client
@@ -125,29 +129,27 @@ impl PoolClient {
             .await?
             .into_object()?;
 
-        let coin_state: NFTState = nft_obj.data.try_as_move().unwrap().deserialize()?;
+        let nft_state: NFTState = nft_obj.data.try_as_move().unwrap().deserialize()?;
 
-        println!("treasuy_cap_state:{:?}", &coin_state);
+        println!("\nft_state:{:?}", &nft_state);
 
         let coin_reference = nft_obj.reference.to_object_ref();
         let nft_obj: Object = nft_obj.try_into()?;
 
         //create tx
 
-        //generic type -- the most desireable way to retrieve the MOVE_TYPE
-
-        let update_call = self
+        let update_nft_call = self
             .client
             .transaction_builder()
             .move_call(
                 signer,
                 self.pool_package_id,
-                "nft",
-                "update_svg",
+                "nft", //while this is amm_client, for simplicity consideration, we directly called function in nft module
+                "update_nft",
                 vec![],
                 vec![
                     SuiJsonValue::from_str(&nft.to_string())?,
-                    SuiJsonValue::from_str(content.as_str())?,
+                    SuiJsonValue::from_str(url)?,
                 ],
                 None,
                 10000,
@@ -156,22 +158,19 @@ impl PoolClient {
 
         let signer = self.keystore.signer(signer);
 
-        let signature = Signature::new(&update_call, &signer);
+        let signature = Signature::new(&update_nft_call, &signer);
 
         let response = self
             .client
             .quorum_driver()
-            .execute_transaction(Transaction::new(update_call, signature))
+            .execute_transaction(Transaction::new(update_nft_call, signature))
             .await?;
 
-        let coin_id = response
-            .effects
-            .created
-            .first() //first created object in this tx
-            .expect("decode created coin")
-            .reference
-            .object_id;
+        let mutated_obj = response.effects.mutated.iter();
 
+        for mut_obj in mutated_obj {
+            println!("\n{:?}", mut_obj.reference);
+        }
         Ok(())
     }
 }
@@ -204,8 +203,6 @@ enum AmmCommand {
         #[clap(long)]
         card: ObjectID,
         #[clap(long)]
-        name: Option<String>,
-        #[clap(long)]
-        symbol: Option<String>,
+        url: Option<String>,
     },
 }
