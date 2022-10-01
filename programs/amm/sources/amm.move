@@ -25,6 +25,8 @@ module sui_lipse::amm{
         18446744073709551615/*U64_MAX*/ / 10000
     };
 
+    friend sui_lipse::amm_script;
+
 
     //<V>: pool provider verifier
     //<Y>: one of pair of tokens

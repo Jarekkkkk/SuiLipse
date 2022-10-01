@@ -4,15 +4,11 @@ module sui_lipse::amm_script{
     use sui::sui::SUI;
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
-    use sui::object::{ ID};
-    use sui::vec_set::VecSet;
+    //use sui::object::{ ID};
+    //use sui::vec_set::VecSet;
     use sui_lipse::nft::{Self, JarekNFT};
 
 
-    struct CardCollection has store {
-        objects: VecSet<ID>,
-        max_capacity: u64, //current capacity is limited, for efficient consideration
-    }
 
     //make this object is untradable, wrapped it to the obj owned by programs
 
@@ -36,6 +32,15 @@ module sui_lipse::amm_script{
             ),
             tx_context::sender(ctx)
         );
+
+        // let nft = JarekNFT{
+        //         id: object::new(sender),
+        //         name: b"Jarek_AMM",
+        //         description:b"This is Jarek's collection, but from pool creation",
+        //         url:b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",
+        // };
+
+        // === version_1 == (depoist to undrer sender )
         transfer::transfer(
             // introduce inner function of other module by being being declared as 'friend'
             nft::mint_nft_(
@@ -46,6 +51,11 @@ module sui_lipse::amm_script{
             ),
             tx_context::sender(ctx)
         )
+
+        // === version_2 === (store under programs)
+
+
+
     }
 
 

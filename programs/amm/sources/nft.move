@@ -5,16 +5,40 @@ module sui_lipse::nft{
     use sui::event;
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
+    use sui::vec_set::VecSet;
+    use sui_lipse::nft_collection::new_card;
 
     friend sui_lipse::amm_script;
 
     const PREFIX:vector<u8> = b"data:image/svg+xml;base64,";
 
-    struct JarekNFT has key, store {
+    struct Collection has key {
+        id:UID,
+        cards: VecSet<ID>,
+        max_capacity: u64, //current capacity is limited, for efficient consideration
+    }
+    // store: capable of being stored
+    // key: capable of contain objects with store
+    // IMPORTANT !!!: The transferred object's type must be defined in the current module, or must have the 'store' type ability"
+    // to be easily transferred off chain by "transfer::transfer"
+    struct JarekNFT has key, store{
         id: UID,
         name: String,
         description: String,
         url: Url, //in ascii::string
+    }
+
+    #[test]
+    public fun test_trasnfer_obj_without_store() {
+        use sui::tx_context;
+
+        let ctx = tx_context::dummy();
+
+        let url = b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ";
+
+        let card = new_card(url::new_unsafe_from_bytes(url), &mut ctx);
+        transfer::transfer(card, tx_context::sender(&ctx));
+
     }
 
     // ===== Events =====
@@ -40,7 +64,7 @@ module sui_lipse::nft{
         &nft.description
     }
 
-    /// Get the NFT's `url`
+    /// IMOPRTANT!!!, even the attribute of object is differnet, it could still deserialzie, howerver, still not sure whether check owned_obj
     public fun url(nft: &JarekNFT): &Url {
         &nft.url
     }
