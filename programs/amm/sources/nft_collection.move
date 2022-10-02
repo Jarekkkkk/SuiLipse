@@ -25,9 +25,10 @@ module sui_lipse::nft_collection{
         description: String,
         url: Url, //in ascii::string
     }
-
+    //test the minimum requirement of nft standard
     struct CopyCard has key{
         id: UID,
+        name: String,
         url :Url
     }
 
@@ -35,6 +36,7 @@ module sui_lipse::nft_collection{
     public fun new_card(url: Url, ctx: &mut TxContext):CopyCard{
         CopyCard{
             id: object::new(ctx),
+            name: ascii::string(b"Test minimum requirement"),
             url
         }
     }
@@ -79,7 +81,7 @@ module sui_lipse::nft_collection{
             max_capacity: DEFAULT_CAPACITY
         };
 
-        let copy_card = CopyCard{id: object::new(ctx), url: url::new_unsafe_from_bytes(url)};
+        let copy_card = CopyCard{id: object::new(ctx), name: ascii::string(b"test limiilted requirement"),url: url::new_unsafe_from_bytes(url)};
 
         //create collection and transfer child obj to collection
         add_(&mut c, name, description, url, object::new(ctx), creator);

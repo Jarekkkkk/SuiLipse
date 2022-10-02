@@ -49,6 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     println!("signer\n: {:?}\n", &amm_client.get_signer(1));
 
+    //deseriazlie
     match opts.subcommand {
         AmmCommand::ChangeCard { card, url } => {
             let url = url.unwrap();

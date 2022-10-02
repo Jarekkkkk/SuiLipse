@@ -6,16 +6,9 @@ module sui_lipse::amm_script{
     use sui::transfer;
     //use sui::object::{ ID};
     //use sui::vec_set::VecSet;
-    use sui_lipse::nft::{Self, JarekNFT};
+    use sui_lipse::nft;
 
 
-
-    //make this object is untradable, wrapped it to the obj owned by programs
-
-
-    entry fun change_card(self: &mut JarekNFT, new_url:vector<u8>){
-        nft::update_nft(self, new_url);
-    }
 
     public entry fun create_pool<V: drop, Y>(
     verifier:V,
@@ -32,20 +25,12 @@ module sui_lipse::amm_script{
             ),
             tx_context::sender(ctx)
         );
-
-        // let nft = JarekNFT{
-        //         id: object::new(sender),
-        //         name: b"Jarek_AMM",
-        //         description:b"This is Jarek's collection, but from pool creation",
-        //         url:b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",
-        // };
-
         // === version_1 == (depoist to undrer sender )
         transfer::transfer(
             // introduce inner function of other module by being being declared as 'friend'
             nft::mint_nft_(
-                b"Jarek_AMM",
-                b"This is Jarek's collection, but from pool creation",
+                name,
+                symbol,
                 b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",
                 ctx
             ),
@@ -53,9 +38,7 @@ module sui_lipse::amm_script{
         )
 
         // === version_2 === (store under programs)
-
-
-
+        //TODO
     }
 
 

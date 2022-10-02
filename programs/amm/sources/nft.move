@@ -6,7 +6,7 @@ module sui_lipse::nft{
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
     use sui::vec_set::VecSet;
-    use sui_lipse::nft_collection::new_card;
+    use sui_lipse::nft_collection;
 
     friend sui_lipse::amm_script;
 
@@ -21,6 +21,7 @@ module sui_lipse::nft{
     // key: capable of contain objects with store
     // IMPORTANT !!!: The transferred object's type must be defined in the current module, or must have the 'store' type ability"
     // to be easily transferred off chain by "transfer::transfer"
+    /// DashBorad
     struct JarekNFT has key, store{
         id: UID,
         name: String,
@@ -36,9 +37,8 @@ module sui_lipse::nft{
 
         let url = b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ";
 
-        let card = new_card(url::new_unsafe_from_bytes(url), &mut ctx);
+        let card = nft_collection::new_card(url::new_unsafe_from_bytes(url), &mut ctx);
         transfer::transfer(card, tx_context::sender(&ctx));
-
     }
 
     // ===== Events =====
