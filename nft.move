@@ -6,7 +6,7 @@ module sui_lipse::nft{
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
     use sui::vec_set::VecSet;
-    use sui_lipse::nft_collection;
+    use sui_lipse::card_collection;
 
     friend sui_lipse::amm_script;
 
@@ -37,7 +37,7 @@ module sui_lipse::nft{
 
         let url = b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ";
 
-        let card = nft_collection::new_card(url::new_unsafe_from_bytes(url), &mut ctx);
+        let card = card_collection::new_card(url::new_unsafe_from_bytes(url), &mut ctx);
         transfer::transfer(card, tx_context::sender(&ctx));
     }
 
@@ -71,7 +71,7 @@ module sui_lipse::nft{
 
     fun init(ctx: &mut TxContext){
         transfer::transfer(
-            mint_nft_(
+            card_collection::mint_nft_(
                 b"Jarek",
                 b"This is Jarek's collection",
                 b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",

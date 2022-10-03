@@ -8,7 +8,6 @@ module sui_lipse::nft_collection{
     use sui::vec_set::{Self, VecSet};
 
 
-
     const DEFAULT_CAPACITY:u64  = 100;
 
     const EMaxCapacityExceeded:u64 = 1;
@@ -138,7 +137,7 @@ module sui_lipse::nft_collection{
     }
 
     // create card && emit event, require UID
-    public(friend) fun mint_nft_(
+    public fun mint_nft_(
         name: vector<u8>,
         description: vector<u8>,
         url: vector<u8>,
