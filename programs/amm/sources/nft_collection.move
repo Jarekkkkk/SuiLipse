@@ -6,7 +6,7 @@ module sui_lipse::nft_collection{
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
     use sui::vec_set::{Self, VecSet};
-    //use sui::typed_id::{Self, TypedID};
+
 
 
     const DEFAULT_CAPACITY:u64  = 100;
@@ -42,6 +42,11 @@ module sui_lipse::nft_collection{
     }
 
     // ===== Events =====
+    struct CollectionCreated has copy, drop{
+        object_id: ID,
+        creator: address,
+
+    }
 
     struct NFTMinted has copy, drop {
         // The Object ID of the NFT

@@ -95,6 +95,7 @@ module sui_lipse::nft{
             tx_context::sender(ctx)
         );
     }
+
     public(friend) fun mint_nft_(
         name: vector<u8>,
         description: vector<u8>,

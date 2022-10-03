@@ -11,13 +11,13 @@ module sui_lipse::amm_script{
 
 
     public entry fun create_pool<V: drop, Y>(
-    verifier:V,
-    token_sui:Coin<SUI>,
-    token_y:Coin<Y>,
-    fee_percentage:u64,
-    name:vector<u8>,
-    symbol:vector<u8>,
-    ctx:&mut TxContext
+        verifier:V,
+        token_sui:Coin<SUI>,
+        token_y:Coin<Y>,
+        fee_percentage:u64,
+        name:vector<u8>,
+        symbol:vector<u8>,
+        ctx:&mut TxContext
     ){
         transfer::transfer(
             amm::create_pool(
@@ -30,7 +30,7 @@ module sui_lipse::amm_script{
             // introduce inner function of other module by being being declared as 'friend'
             nft::mint_nft_(
                 name,
-                symbol,
+                symbol, // passed as description
                 b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",
                 ctx
             ),

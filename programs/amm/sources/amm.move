@@ -7,7 +7,6 @@ module sui_lipse::amm{
     use sui::transfer;
     use sui::event;
     use std::string::{Self, String};
-
     use sui_lipse::amm_math;
 
     friend sui_lipse::amm_script;
@@ -61,9 +60,24 @@ module sui_lipse::amm{
         fee_percentage:u64 //[1,10000] --> [0.01%, 100%]
     }
 
+    //geneic
+    struct PoolG<phantom V, phantom X, phantom Y> has key{
+        id:UID,
+        name:String,
+        symbol:String,
+        reserve_x:Balance<X>,
+        reserve_y:Balance<Y>,
+        lp_supply:Supply<LP<V, X, Y>>,
+        fee_percentage:u64 //[1,10000] --> [0.01%, 100%]
+    }
+
     // ===== Events =====
     struct PoolCreated has copy, drop{
         pool:ID,
+        name: String,
+        symbol: String,
+        fee_percentage: u64
+        //Quesiton: can i declare type ?
         //token_a: TYPE_A
         //token_b: TYPE_B
     }
@@ -94,9 +108,45 @@ module sui_lipse::amm{
     }
 
     // ===== CREATE_POOL =====
-    public fun create_pool<V:drop, X, Y>():Coin<LP<V, X, Y>>{
+    public fun create_pool_<V:drop, X, Y>(
         _capabiilty: V,
+        token_x: Coin<X>,
+        token_y: Coin<Y>,
+        fee_percentage: u64,
+        name: vector<u8>,
+        symbol: vector<u8>,
+        ctx: &mut TxContext
+    ):Coin<LP<V, X, Y>>{
+        let token_x_value = coin::value(&token_x);
+        let token_y_value = coin::value(&token_y);
 
+        assert!(token_x_value > 0 && token_y_value > 0, EZeroAmount);
+        assert!(token_x_value < MAX_POOL_VALUE && token_y_value < MAX_POOL_VALUE, EFullPool);
+        assert!(fee_percentage > 0 && fee_percentage <= 10000, EInvalidFee);
+
+        let lp_shares = amm_math::sqrt(token_x_value) * amm_math::sqrt(token_y_value);
+        let lp_supply = balance::create_supply(LP<V, X, Y>{});
+        let lp_balance = balance::increase_supply(&mut lp_supply, lp_shares);
+
+        let pool = PoolG{
+            id:object::new(ctx),
+            reserve_x:coin::into_balance(token_x),
+            reserve_y:coin::into_balance(token_y),
+            lp_supply,
+            fee_percentage,
+            name:string::utf8(name),
+            symbol:string::utf8(symbol),
+        };
+         event::emit(
+            PoolCreated{
+                pool:object::id(&pool),
+                name: string::utf8(name),
+                symbol: string::utf8(symbol),
+                fee_percentage
+            }
+        );
+        transfer::share_object(pool);
+        coin::from_balance(lp_balance, ctx)
     }
 
     public fun create_pool<V:drop,Y>(
@@ -130,7 +180,12 @@ module sui_lipse::amm{
             symbol:string::utf8(symbol),
         };
          event::emit(
-            PoolCreated{pool:object::id(&pool)}
+            PoolCreated{
+                pool:object::id(&pool),
+                name: string::utf8(name),
+                symbol: string::utf8(symbol),
+                fee_percentage
+            }
         );
         transfer::share_object(pool);
         coin::from_balance(lp_balance, ctx)
@@ -312,6 +367,7 @@ module sui_lipse::amm_test{
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
     use sui_lipse::amm::{Self, Pool, LP_TOKEN};
 
+    struct TOKEN_X {} // token_x
     struct TOKEN_Y {} //token_y
 
     struct JAREK has drop {}/*Verifier for pool creator*/
@@ -324,6 +380,10 @@ module sui_lipse::amm_test{
     #[test] fun test_init_pool() {
         let scenario = test::begin(&@0x1);
         test_init_pool_(&mut scenario);
+    }
+    #[test] fun test_init_sui_pool(){
+        let scenario = test::begin(&@0x1);
+        test_init_sui_pool_(&mut scenario);
     }
      #[test] fun test_swap_sui() {
         let scenario = test::begin(&@0x1);
@@ -342,7 +402,47 @@ module sui_lipse::amm_test{
         remove_liquidity_(&mut scenario);
     }
 
-    fun test_init_pool_(test:&mut Scenario){
+    fun test_init_pool_(test: &mut Scenario){
+        let ( lp, _) = people();
+
+        //init the module
+        next_tx(test, &lp);{
+            amm::init_for_testing(ctx(test));
+        };
+
+        //create pool
+        next_tx(test, &lp); {
+            let lsp = amm::create_pool(
+                JAREK {},
+                mint<SUI>(SUI_AMT, ctx(test)),
+                mint<TOKEN_Y>(TOKEN_Y_AMT, ctx(test)),
+                3,
+                b"jarek's pool",
+                b"SUI-JRK",
+                ctx(test)
+            );
+
+            assert!(burn(lsp) == 31622000, 0);
+        };
+
+        //shared_pool
+        next_tx(test, &lp);
+        {
+            let pool = test::take_shared<Pool<JAREK, TOKEN_Y>>(test);
+            let shared_pool = test::borrow_mut(&mut pool); // shared_obj could only be borrowed mutably
+            let (sui_r, token_y_r, lp_s) = amm::get_reserves<JAREK, TOKEN_Y>(shared_pool);
+            let sui_price = amm::get_sui_price<JAREK, TOKEN_Y>(shared_pool);
+
+            assert!(sui_r == SUI_AMT,0);
+            assert!(token_y_r == TOKEN_Y_AMT,0);
+            assert!(lp_s == 31622000,0);
+            assert!(sui_price == 1000,0);
+
+            test::return_shared(test, pool);
+        }
+    }
+
+    fun test_init_sui_pool_(test:&mut Scenario){
         let ( lp, _) = people();
 
         //init the module
