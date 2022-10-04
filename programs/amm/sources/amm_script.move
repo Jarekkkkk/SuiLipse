@@ -4,7 +4,7 @@ module sui_lipse::amm_script{
     use sui::sui::SUI;
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
-    //use sui_lipse::nft;
+    use sui_lipse::nft_collection;
 
 
     public entry fun create_pool<V: drop, Y>(
@@ -22,20 +22,14 @@ module sui_lipse::amm_script{
             ),
             tx_context::sender(ctx)
         );
-        // === version_1 == (depoist to undrer sender )
-        // transfer::transfer(
-        //     // introduce inner function of other module by being being declared as 'friend'
-        //     nft::mint_nft_(
-        //         name,
-        //         symbol, // passed as description
-        //         b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",
-        //         ctx
-        //     ),
-        //     tx_context::sender(ctx)
-        // )
-
-        // === version_2 === (store under programs)
-        //TODO
+        // to trasnfer NFT with only 'key' abiility, it has to be called in the module where define
+        // introduce inner function of other module by being being declared as 'friend'
+         nft_collection::mint_nft(
+                name,
+                symbol, // passed as description
+                b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ",
+                ctx
+            );
     }
 
 

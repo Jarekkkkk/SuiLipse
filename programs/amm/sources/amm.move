@@ -39,26 +39,11 @@ module sui_lipse::amm{
 
     // ===== Object =====
     /// only moduler publisher can create the pool
-    struct PoolCapabilitu has key{ id: UID }
+    struct PoolCapability has key{ id: UID }
 
-    //<V>: pool provider verifier
-    //<Y>: one of pair of tokens
-    //LP_TOKEN: pool token
     //must be `uppercase` to become one-time witness
     struct LP_TOKEN<phantom V, phantom X, phantom Y> has drop {}
 
-    //Initially, pool should all be exchanged 'in SUI based'
-    // struct Pool<phantom V, phantom Y> has key{
-    //     id:UID,
-    //     name:String,
-    //     symbol:String,
-    //     reserve_sui:Balance<SUI>,
-    //     reserve_y:Balance<Y>,
-    //     lp_supply:Supply<LP_TOKEN<V,Y>>,
-    //     fee_percentage:u64 //[1,10000] --> [0.01%, 100%]
-    // }
-
-    //geneic
     struct Pool<phantom V, phantom X, phantom Y> has key{
         id:UID,
         name:String,
@@ -75,7 +60,6 @@ module sui_lipse::amm{
         name: String,
         symbol: String,
         fee_percentage: u64
-
         //Quesiton: can i declare type ?
         //token_a: TYPE_A
         //token_b: TYPE_B
@@ -87,21 +71,19 @@ module sui_lipse::amm{
     }
     struct Burn has copy, drop{
         sender: address,
+        lp_token:u64,
         amount0:u64,
-        amount1:u64
+        amount1:u64,
     }
     struct Swap has copy, drop{
         sender: address,
-        amount0In:u64,
-        amount1In:u64,
-        amount0Out:u64,
-        amount1Out:u64,
-        to:address
+        amountIn:u64,
+        amountOut:u64,
     }
 
     fun init(ctx:&mut TxContext){
         transfer::transfer(
-            PoolCapabilitu{id: object::new(ctx)},
+            PoolCapability{id: object::new(ctx)},
             tx_context::sender(ctx)
         )
     }
@@ -163,10 +145,10 @@ module sui_lipse::amm{
     // ===== ADD_LIQUIDITY =====
 
     public fun add_liquidity_<V, X, Y>(
-        pool:&mut Pool<V, X, Y>,
+        pool: &mut Pool<V, X, Y>,
         token_x: Coin<X>,
         token_y: Coin<Y>,
-        amount_sui_min:u64,
+        amount_x_min:u64,
         amount_y_min:u64,
         ctx:&mut TxContext
     ):Coin<LP_TOKEN<V, X, Y>>{
@@ -188,14 +170,13 @@ module sui_lipse::amm{
                 (token_x_value, opt_b,  token_x, split_b)
             }else{
                 let opt_a = quote(token_y_r, token_x_r, token_y_value);
-                assert!(opt_a <= token_x_value && opt_a >= amount_sui_min, EInsufficientAAmount );
+                assert!(opt_a <= token_x_value && opt_a >= amount_x_min, EInsufficientAAmount );
 
                 let split_a = coin::take<X>(coin::balance_mut<X>(&mut token_x), opt_b, ctx);
                 transfer::transfer(token_x, tx_context::sender(ctx));
                 (opt_a, token_y_value,  split_a, token_y)
             }
         };
-
         let lp_output = amm_math::min(
             (amount_a * lp_supply / token_x_r),
             (amount_b * lp_supply / token_y_r)
@@ -208,6 +189,13 @@ module sui_lipse::amm{
         assert!(token_y_pool < MAX_POOL_VALUE ,EFullPool);
 
         let output_balance = balance::increase_supply<LP_TOKEN<V, X, Y>>(&mut pool.lp_supply, lp_output);
+        event::emit(
+            Mint{
+                sender: tx_context::sender(ctx),
+                amount0: amount_a,
+                amount1: amount_b
+            }
+        );
         coin::from_balance(output_balance, ctx)
     }
 
@@ -234,14 +222,23 @@ module sui_lipse::amm{
         let lp_value = coin::value(&lp_token);
         assert!(lp_value > 0, EZeroAmount);
 
-        let (sui_output, token_y_output) = withdraw_liquidity(pool, lp_value);
+        let (token_x_output, token_y_output) = withdraw_liquidity(pool, lp_value);
 
-        assert!(sui_output >= amount_a_min, EInsufficientAAmount);
+        assert!(token_x_output >= amount_a_min, EInsufficientAAmount);
         assert!(token_y_output >= amount_b_min, EInsufficientBAmount);
 
         balance::decrease_supply<LP_TOKEN<V, X, Y>>(&mut pool.lp_supply,coin::into_balance(lp_token));
+
+        event::emit(
+            Burn{
+                sender: tx_context::sender(ctx),
+                lp_token: lp_value,
+                amount0: token_x_output,
+                amount1: token_y_output
+            }
+        );
         (
-            coin::take<X>(&mut pool.reserve_x, sui_output, ctx),
+            coin::take<X>(&mut pool.reserve_x, token_x_output, ctx),
             coin::take<Y>(&mut pool.reserve_y, token_y_output, ctx)
         )
     }
@@ -258,11 +255,11 @@ module sui_lipse::amm{
 
     // ===== SWAP =====
 
-    ///to swap sui, pass SUI type as X in client side
+    //TODO: sort the token
     public fun swap_token_x<V, X, Y>(
-    pool:&mut Pool<V, X, Y>,
-    token_x:Coin<X>,
-    ctx:&mut TxContext
+    pool: &mut Pool<V, X, Y>,
+    token_x: Coin<X>,
+    ctx: &mut TxContext
     ):Coin<Y>{
         let token_x_value = coin::value(&token_x);
         assert!(token_x_value >0, EZeroAmount);
@@ -272,13 +269,21 @@ module sui_lipse::amm{
 
         let x_balance = coin::into_balance(token_x);//get the inner ownership
 
+        event::emit(
+            Swap{
+                sender: tx_context::sender(ctx),
+                amountIn: token_x_value,
+                amountOut: output_amount
+            }
+        );
         balance::join<X>(&mut pool.reserve_x, x_balance);// transaction fee goes back to pool
         coin::take<Y>(&mut pool.reserve_y, output_amount, ctx)
     }
 
+    //this could be omited as well
     public fun swap_token_y<V, X, Y>(
     pool: &mut Pool<V, X, Y>,
-    token_y:Coin<Y>,
+    token_y: Coin<Y>,
     ctx: &mut TxContext
     ):Coin<X>{
         let token_y_value = coin::value(&token_y);
@@ -290,6 +295,13 @@ module sui_lipse::amm{
         let output_amount = get_input(token_y_value, reserve_y, reserve_x, pool.fee_percentage);
         let token_y_balance = coin::into_balance(token_y);
 
+         event::emit(
+            Swap{
+                sender: tx_context::sender(ctx),
+                amountIn: token_y_value,
+                amountOut: output_amount
+            }
+        );
         balance::join<Y>(&mut pool.reserve_y, token_y_balance);
         coin::take<X>(&mut pool.reserve_x, output_amount, ctx)
     }

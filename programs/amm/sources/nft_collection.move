@@ -7,6 +7,7 @@ module sui_lipse::nft_collection{
     use sui::tx_context::{Self, TxContext};
     use sui::vec_set::{Self, VecSet};
 
+    friend sui_lipse::amm_script;
 
     const DEFAULT_CAPACITY:u64  = 100;
 
@@ -118,11 +119,9 @@ module sui_lipse::nft_collection{
         //card_id
     }
 
-
-
     // ===== Entrypoints =====
 
-    public entry fun mint_nft(
+    public (friend) fun mint_nft(
         name: vector<u8>,
         description: vector<u8>,
         url: vector<u8>,
@@ -137,7 +136,7 @@ module sui_lipse::nft_collection{
     }
 
     // create card && emit event, require UID
-    public fun mint_nft_(
+    fun mint_nft_(
         name: vector<u8>,
         description: vector<u8>,
         url: vector<u8>,
@@ -167,6 +166,17 @@ module sui_lipse::nft_collection{
         transfer::transfer(nft, recipient)
     }
 
+    /// Permanently delete `nft`
+    public entry fun burn(nft: Card, _: &mut TxContext) {
+        let Card { id, name: _, description: _, url: _ } = nft;
+        object::delete(id)
+    }
+
+    /// User could update avavtar
+    public entry fun update_url(nft:&mut Card, new_url:vector<u8>){
+        url::update(&mut nft.url, ascii::string(new_url));
+    }
+
     /// Update the `description` of `nft` to `new_description`
     public entry fun update_description(
         nft: &mut Card,
@@ -175,19 +185,6 @@ module sui_lipse::nft_collection{
     ) {
         nft.description = ascii::string(new_description)
     }
-
-    /// Permanently delete `nft`
-    public entry fun burn(nft: Card, _: &mut TxContext) {
-        let Card { id, name: _, description: _, url: _ } = nft;
-        object::delete(id)
-    }
-
-    public entry fun update_nft(nft:&mut Card, new_url:vector<u8>){
-        let url = &mut nft.url;
-
-        url::update(url, ascii::string(new_url));
-    }
-
 
 #[test]
 public fun test(){
