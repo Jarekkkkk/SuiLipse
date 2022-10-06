@@ -26,7 +26,10 @@ use sui_sdk::{
 
 use async_trait::async_trait;
 use dotenv::dotenv;
-use sui_elipse::default_keystore_path;
+use sui_lipse::{
+    default_keystore_path,
+    state::{NFTState, Pool},
+};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -47,7 +50,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let amm_client = AmmClient::new(&opts, suilipse_pkg, keystore_path).await?;
 
-    println!("signer\n: {:?}\n", &amm_client.get_signer(1));
+    println!("signer\n: {:?}\n", &amm_client.get_signer(0));
 
     //deseriazlie
     match opts.subcommand {
@@ -57,6 +60,22 @@ async fn main() -> Result<(), anyhow::Error> {
             println!("name {:?}", url);
 
             amm_client.change_card(card, &url).await?;
+        }
+        AmmCommand::CreatePool { capability } => {
+            print!("create pool")
+            //amm_client.create_pool();
+        }
+        AmmCommand::AddLiquidity { pool } => {
+            print!("add liquidity")
+        }
+        AmmCommand::RemoveLiquidity { pool } => {
+            print!("add liquidity")
+        }
+        AmmCommand::SwapX { pool } => {
+            print!("swap x ")
+        }
+        AmmCommand::SwapY { pool } => {
+            print!("swap y")
         }
     }
     Ok(())
@@ -68,21 +87,13 @@ struct AmmClient {
     keystore: SuiKeystore,
 }
 
-#[derive(Deserialize, Debug)]
-struct NFTState {
-    uid: UID,
-    name: String,
-    description: String,
-    url: String, //i
-}
 //mirror scripts for calling on-chain smart contract
 #[async_trait]
 trait PoolScript: Sized {
-    async fn change_card() -> Result<(), anyhow::Error>;
     async fn create_pool() -> Result<(), anyhow::Error>;
     async fn add_liquidity() -> Result<(), anyhow::Error>;
     async fn remove_liquidity() -> Result<(), anyhow::Error>;
-    async fn swap_sui() -> Result<(), anyhow::Error>;
+    async fn swap_token_x() -> Result<(), anyhow::Error>;
     async fn swap_token_y() -> Result<(), anyhow::Error>;
 }
 
@@ -115,7 +126,7 @@ impl AmmClient {
     }
 
     async fn change_card(&self, nft: ObjectID, url: &str) -> Result<(), anyhow::Error> {
-        let signer = self.keystore.addresses()[1];
+        let signer = self.keystore.addresses()[1]; // without public to block out high-level control
 
         self.client
             .wallet_sync_api()
@@ -174,6 +185,95 @@ impl AmmClient {
         }
         Ok(())
     }
+    async fn create_pool(
+        &self,
+        token_x: ObjectID,
+        token_y: ObjectID,
+        fee_percentage: u64,
+        name: String,
+        symbol: String,
+    ) -> Result<(), anyhow::Error> {
+        let signer = self.keystore.addresses()[1]; // without public to block out high-level control
+
+        self.client
+            .wallet_sync_api()
+            .sync_account_state(signer)
+            .await?;
+
+        //get the state
+        let nft_obj = self
+            .client
+            .read_api()
+            .get_object(nft)
+            .await?
+            .into_object()?;
+
+        let nft_state: NFTState = nft_obj.data.try_as_move().unwrap().deserialize()?;
+
+        println!("\nft_state:{:?}", &nft_state);
+
+        let coin_reference = nft_obj.reference.to_object_ref();
+        let nft_obj: Object = nft_obj.try_into()?;
+
+        //create tx
+
+        let update_nft_call = self
+            .client
+            .transaction_builder()
+            .move_call(
+                signer,
+                self.pool_package_id,
+                "nft", //while this is amm_client, for simplicity consideration, we directly called function in nft module
+                "update_nft",
+                vec![],
+                vec![
+                    SuiJsonValue::from_str(&nft.to_string())?,
+                    SuiJsonValue::from_str(url)?,
+                ],
+                None,
+                10000,
+            )
+            .await?;
+
+        let signer = self.keystore.signer(signer);
+
+        let signature = Signature::new(&update_nft_call, &signer);
+
+        let response = self
+            .client
+            .quorum_driver()
+            .execute_transaction(Transaction::new(update_nft_call, signature))
+            .await?;
+
+        let mutated_obj = response.effects.mutated.iter();
+
+        for mut_obj in mutated_obj {
+            println!("\n{:?}", mut_obj.reference);
+        }
+        Ok(())
+    }
+    async fn add_liquidity(
+        &self,
+        pool: ObjectID,
+        token_x: ObjectID,
+        token_y: ObjectID,
+    ) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+    async fn remove_liquidity(
+        &self,
+        pool: ObjectID,
+        token_x: ObjectID,
+        token_y: ObjectID,
+    ) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+    async fn swap_x(&self, pool: ObjectID, token_x: ObjectID) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+    async fn swap_y(&self, pool: ObjectID, token_y: ObjectID) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }
 
 // Clap command line args parser
@@ -205,5 +305,30 @@ enum AmmCommand {
         card: ObjectID,
         #[clap(long)]
         url: Option<String>,
+    },
+    /// Create Pool object by module publisher
+    CreatePool {
+        #[clap(long)]
+        capability: ObjectID,
+    },
+    /// Add liquidity by givend pool
+    AddLiquidity {
+        #[clap(long)]
+        pool: ObjectID,
+    },
+    /// Remove liquidity by givend pool
+    RemoveLiquidity {
+        #[clap(long)]
+        pool: ObjectID,
+    },
+    /// Swap token X in given pool
+    SwapX {
+        #[clap(long)]
+        pool: ObjectID,
+    },
+    /// Swap token Y in given pool
+    SwapY {
+        #[clap(long)]
+        pool: ObjectID,
     },
 }

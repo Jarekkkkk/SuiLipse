@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use std::{convert::TryInto, path::PathBuf, str::FromStr};
-use sui_elipse::default_keystore_path;
+use sui_lipse::{
+    default_keystore_path,
+    state::{CoinState, TreasuryCapState},
+};
 use sui_sdk::{
     crypto::{KeystoreType, SuiKeystore},
     json::SuiJsonValue,
@@ -79,18 +82,6 @@ struct CoinClient {
     //coin_id: ObjectID,
     client: SuiClient,
     keystore: SuiKeystore,
-}
-
-//mirror object from move language
-#[derive(Deserialize, Debug)]
-struct CoinState {
-    uid: UID,
-    balance: u64,
-}
-#[derive(Deserialize, Debug)]
-struct TreasuryCapState {
-    uid: UID,
-    total_supply: u64,
 }
 
 /// on-chain scripts for any `ERC20 fungible token`
@@ -256,7 +247,7 @@ impl CoinScript for CoinClient {
         let transfer_call = self
             .client
             .transaction_builder()
-            .transfer_object(signer, *coin_state.uid.object_id(), None, 1000, recipient)
+            .transfer_object(signer, coin_state.uid_into(), None, 1000, recipient)
             .await?;
 
         let signer = self.keystore.signer(signer);

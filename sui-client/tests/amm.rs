@@ -1,4 +1,4 @@
-use sui_elipse::*;
+use sui_lipse::*;
 
 const SUI: u64 = 1_000_000;
 const TOKEN_Y: u64 = 1_000_000_000;

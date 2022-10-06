@@ -1,15 +1,14 @@
 module sui_lipse::amm_script{
     use sui_lipse::amm::{Self, Pool, LP_TOKEN};
     use sui::coin::{Coin};
-    use sui::sui::SUI;
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui_lipse::nft_collection;
+    //use std::fixed_point32; PENDING: for price oracle
 
-
-    public entry fun create_pool<V: drop, Y>(
+    public entry fun create_pool<V: drop, X, Y>(
         verifier:V,
-        token_sui:Coin<SUI>,
+        token_x:Coin<X>,
         token_y:Coin<Y>,
         fee_percentage:u64,
         name:vector<u8>,
@@ -18,7 +17,7 @@ module sui_lipse::amm_script{
     ){
         transfer::transfer(
             amm::create_pool_(
-                verifier, token_sui, token_y, fee_percentage, name, symbol, ctx
+                verifier, token_x, token_y, fee_percentage, name, symbol, ctx
             ),
             tx_context::sender(ctx)
         );
@@ -32,14 +31,13 @@ module sui_lipse::amm_script{
             );
     }
 
-
     //it is required to input desired amounts, since sometimes the amount won't be that precise
     entry fun add_liquidity<V, X, Y>(
-    pool:&mut Pool<V, X, Y>,  sui: Coin<X>, token_y: Coin<Y>,
+    pool:&mut Pool<V, X, Y>,  token_x: Coin<X>, token_y: Coin<Y>,
     amount_a_min:u64, amount_b_min:u64, ctx:&mut TxContext
     ){
         transfer::transfer(
-            amm::add_liquidity_(pool, sui, token_y, amount_a_min, amount_b_min, ctx),
+            amm::add_liquidity_(pool, token_x, token_y, amount_a_min, amount_b_min, ctx),
             tx_context::sender(ctx)
         );
     }
@@ -59,11 +57,11 @@ module sui_lipse::amm_script{
         );
     }
 
-    entry fun swap_sui<V,Y>(
-    pool:&mut Pool<V, SUI, Y>, sui:Coin<SUI>, ctx:&mut TxContext
+    entry fun swap_token_x<V, X, Y>(
+    pool:&mut Pool<V, X, Y>, token_x:Coin<X>, ctx:&mut TxContext
     ){
         transfer::transfer(
-           amm::swap_token_x(pool, sui, ctx),
+           amm::swap_token_x(pool, token_x, ctx),
             tx_context::sender(ctx)
         );
     }

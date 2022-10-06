@@ -13,6 +13,8 @@ module sui_lipse::nft_collection{
 
     const EMaxCapacityExceeded:u64 = 1;
 
+    // is that possible to retrieve this NFT by fileting module or type from front_end ?
+    // module_address::<T> --> User's unique Card dashbaord
     struct CardCollection<phantom Card> has key {
         id:UID,
         cards: VecSet<ID>, // purpose of stroing ID

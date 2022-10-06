@@ -255,7 +255,7 @@ module sui_lipse::amm{
 
     // ===== SWAP =====
 
-    //TODO: sort the token
+    //TODO: sort the token to optimize and migrate below 2 functinos
     public fun swap_token_x<V, X, Y>(
     pool: &mut Pool<V, X, Y>,
     token_x: Coin<X>,
@@ -308,13 +308,13 @@ module sui_lipse::amm{
 
     // ------ helper script functions -------
 
+    /// currently we are unable to get either block.timestamp & epoch, so we directly fetch the reserve's pool
     public fun get_x_price<V, X, Y>(pool:&Pool<V, X, Y>):u64{
         let token_x_value = balance::value(&pool.reserve_x);
         let token_y_value = balance::value(&pool.reserve_y);
 
         token_y_value / token_x_value
     }
-
     /// for fetch pool info
     ///( sui_reserve, token_y_reserve, lp_token_supply)
     public fun get_reserves<V, X, Y>(pool: &Pool<V, X, Y>): (u64, u64, u64) {
@@ -336,7 +336,6 @@ module sui_lipse::amm{
 
         (reserve_b/ reserve_a) * input_a
     }
-
     /// swap
     /// dy = (dx * y) / (dx + x), at dx' = dx(1 - fee)
     public fun get_dy(dx:u64, x:u64, y:u64, f:u64):u64{
@@ -346,7 +345,6 @@ module sui_lipse::amm{
 
         (numerator / denominator)
     }
-
     /// for remove_liquidity
     /// (dx, dy) = ((lp_input/ LP_supply) * reserve_x ,(lp_input/ LP_supply) * reserve_y)
     public fun withdraw_liquidity<V, X, Y>(pool:&Pool<V, X, Y>, lp_value:u64):(u64, u64){
@@ -357,7 +355,6 @@ module sui_lipse::amm{
 
         ((token_x_r * lp_value / lp_supply), (token_y_r * lp_value / lp_supply))
     }
-
     //glue calling for init the module
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
