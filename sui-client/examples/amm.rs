@@ -191,10 +191,10 @@ impl AmmClient {
         let token_y_obj: Object = token_y_obj.try_into()?;
 
         //create tx
-        let foo = token_y_obj.get_move_template_type()?;
-        println!("{:?}", &foo);
+        let foo = cap_obj.data.type_().unwrap();
+        println!("foo{:?}", foo);
         let type_args = vec![
-            SuiTypeTag::from(cap_obj.get_move_template_type()?),
+            //SuiTypeTag::from(TypeTag::(foo)),
             SuiTypeTag::from(token_x_obj.get_move_template_type()?),
             SuiTypeTag::from(token_y_obj.get_move_template_type()?),
         ];
