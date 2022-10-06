@@ -44,8 +44,6 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let coin_client = CoinClient::new(&opts, coin_pkg, keystore_path).await?;
 
-    println!("signer\n: {:?}\n", &coin_client.get_signer(1));
-
     match opts.subcommand {
         CoinCommand::MintAndTransfer {
             capability,
@@ -137,7 +135,7 @@ impl CoinScript for CoinClient {
         amount: u64,
     ) -> Result<(), anyhow::Error> {
         //retrieve the msg.sender in the keystore if not provided
-        let sender = self.get_signer(1);
+        let sender = self.get_signer(0);
         let recipient = recipient.unwrap_or(sender);
 
         //get the state

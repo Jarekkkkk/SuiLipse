@@ -4,6 +4,10 @@ use sui_sdk::types::{base_types::ObjectID, id::UID};
 // ===== coin_pkg =====
 
 #[derive(Deserialize, Debug)]
+pub struct CapabilityState {
+    uid: UID,
+}
+#[derive(Deserialize, Debug)]
 pub struct CoinState {
     uid: UID,
     balance: u64,
@@ -40,3 +44,21 @@ pub struct NFTState {
     description: String,
     url: String, //i
 }
+
+// #[async_trait]
+// pub trait Client {
+//     fn getObject<T>(&self) -> Result<T, anyhow::Error> {}
+// }
+
+// #[async_trait]
+// impl Client for AmmClient {
+//     async fn get_obj_state<T>(&self, object_id: ObjectID) -> SuiObject<SuiRawData> {
+//         let obj = self
+//             .client
+//             .read_api()
+//             .get_object(object_id)
+//             .await?
+//             .into_object()?;
+//         obj
+//     }
+// }
