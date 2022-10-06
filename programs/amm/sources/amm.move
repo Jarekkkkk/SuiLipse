@@ -2,14 +2,13 @@ module sui_lipse::amm{
     use sui::object::{Self,UID, ID};
     use sui::balance::{Self,Supply, Balance};
     use sui::coin::{Self,Coin};
-    use sui::sui::SUI;
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui::event;
     use std::string::{Self, String};
     use sui_lipse::amm_math;
 
-    friend sui_lipse::amm_script;
+
 
 
     // ===== EVENT =====
@@ -38,25 +37,28 @@ module sui_lipse::amm{
 
     // ===== Object =====
     /// only moduler publisher can create the pool
-    struct PoolCapability has key{ id: UID }
+    /// no type argument required sicnce it could be applied to all kinds of pool
+    struct PoolCapability has key, store {
+        id: UID,
+    }
 
     //must be `uppercase` to become one-time witness
     struct LP_TOKEN<phantom V, phantom X, phantom Y> has drop {}
 
     struct Pool<phantom V, phantom X, phantom Y> has key{
-        id:UID,
-        name:String,
-        symbol:String,
-        reserve_x:Balance<X>,
-        reserve_y:Balance<Y>,
-        lp_supply:Supply<LP_TOKEN<V, X, Y>>,
+        id: UID,
+        name: String,
+        symbol: String,
+        reserve_x: Balance<X>,
+        reserve_y: Balance<Y>,
+        lp_supply: Supply<LP_TOKEN<V, X, Y>>,
         fee_percentage:u64 //[1,10000] --> [0.01%, 100%]
         //TODO: Epoch duration in Sui
     }
 
     // ===== Events =====
     struct PoolCreated has copy, drop{
-        pool:ID,
+        pool: ID,
         name: String,
         symbol: String,
         fee_percentage: u64
@@ -82,15 +84,35 @@ module sui_lipse::amm{
     }
 
     fun init(ctx:&mut TxContext){
-        transfer::transfer(
-            PoolCapability{id: object::new(ctx)},
-            tx_context::sender(ctx)
-        )
+         transfer::transfer(
+             PoolCapability{id: object::new(ctx)},
+             tx_context::sender(ctx)
+         )
     }
 
     // ===== CREATE_POOL =====
+    /// onlt module publisher could create pool by passing the witess type
+    entry fun create_pool<V: drop, X, Y>(
+       verifier: V,
+        cap: &PoolCapability,
+        token_x: Coin<X>,
+        token_y: Coin<Y>,
+        fee_percentage: u64,
+        name: vector<u8>,
+        symbol: vector<u8>,
+        ctx: &mut TxContext
+    ){
+        transfer::transfer(
+            create_pool_(
+                verifier, cap, token_x, token_y, fee_percentage, name, symbol, ctx
+            ),
+            tx_context::sender(ctx)
+        );
+    }
+
     public fun create_pool_<V:drop, X, Y>(
-        _capabiilty: V,
+        _verifier: V,
+        _capability: &PoolCapability,
         token_x: Coin<X>,
         token_y: Coin<Y>,
         fee_percentage: u64,
@@ -130,17 +152,6 @@ module sui_lipse::amm{
         coin::from_balance(lp_balance, ctx)
     }
 
-    public fun create_sui_pool<V:drop,Y>(
-        _verifier:V,
-        token_sui:Coin<SUI>,
-        token_y:Coin<Y>,
-        fee_percentage:u64,
-        name:vector<u8>,
-        symbol:vector<u8>,
-        ctx:&mut TxContext
-    ):Coin<LP_TOKEN<V, SUI, Y>> {
-       create_pool_<V, SUI, Y>( _verifier, token_sui, token_y, fee_percentage, name, symbol, ctx)
-    }
 
     // ===== ADD_LIQUIDITY =====
 
@@ -199,17 +210,6 @@ module sui_lipse::amm{
         coin::from_balance(output_balance, ctx)
     }
 
-    fun add_sui_liquidity<V, Y>(
-        pool:&mut Pool<V, SUI, Y>,
-        token_x: Coin<SUI>,
-        token_y: Coin<Y>,
-        amount_sui_min:u64,
-        amount_y_min:u64,
-        ctx:&mut TxContext
-    ):Coin<LP_TOKEN<V, SUI, Y>>{
-        add_liquidity_<V, SUI, Y>( pool, token_x, token_y, amount_sui_min, amount_y_min, ctx )
-    }
-
     // ===== REMOVE_LIQUIDITY =====
 
     public fun remove_liquidity_<V, X, Y>(
@@ -241,16 +241,6 @@ module sui_lipse::amm{
             coin::take<X>(&mut pool.reserve_x, token_x_output, ctx),
             coin::take<Y>(&mut pool.reserve_y, token_y_output, ctx)
         )
-    }
-
-    fun remove_sui_liquidity<V, Y>(
-    pool:&mut Pool<V, SUI, Y>,
-    lp_token:Coin<LP_TOKEN<V, SUI, Y>>,
-    amount_a_min:u64,
-    amount_b_min:u64,
-    ctx:&mut TxContext
-    ):(Coin<SUI>, Coin<Y>){
-        remove_liquidity_<V, SUI, Y>(pool, lp_token, amount_a_min, amount_b_min, ctx)
     }
 
     // ===== SWAP =====
@@ -368,7 +358,7 @@ module sui_lipse::amm_test{
     use sui::sui::SUI;
     use sui::coin::{Self, mint_for_testing as mint, destroy_for_testing as burn};
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
-    use sui_lipse::amm::{Self, Pool, LP_TOKEN};
+    use sui_lipse::amm::{Self, Pool, LP_TOKEN, PoolCapability};
     use std::debug;
 
     struct TOKEN_X {} // token_x
@@ -384,8 +374,9 @@ module sui_lipse::amm_test{
 
     #[test] fun test_init_sui_pool(){
         let scenario = test::begin(&@0x1);
+
         test_init_pool_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
-        test_init_pool_<JAREK, TOKEN_X, TOKEN_Y>(TOKEN_X_AMT, TOKEN_Y_AMT, &mut scenario);
+        //test_init_pool_<JAREK, TOKEN_X, TOKEN_Y>(TOKEN_X_AMT, TOKEN_Y_AMT, &mut scenario);
     }
      #[test] fun test_swap_sui() {
         let scenario = test::begin(&@0x1);
@@ -404,7 +395,7 @@ module sui_lipse::amm_test{
         remove_liquidity_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
     }
 
-    fun test_init_pool_<V, X, Y>(token_x_amt: u64, token_y_amt: u64,test:&mut Scenario) {
+    fun test_init_pool_<V, X, Y>(token_x_amt: u64, token_y_amt: u64, test:&mut Scenario) {
         let ( lp, _) = people();
 
         //init the module
@@ -414,8 +405,10 @@ module sui_lipse::amm_test{
 
         //create pool
         next_tx(test, &lp); {
+            let cap = test::take_owned<PoolCapability>(test);
             let lsp = amm::create_pool_(
                 JAREK {},
+                &cap,
                 mint<X>(token_x_amt, ctx(test)),
                 mint<Y>(token_y_amt, ctx(test)),
                 FEE,
@@ -425,6 +418,7 @@ module sui_lipse::amm_test{
             );
 
             assert!(burn(lsp) == amm::get_l(token_x_amt, token_y_amt), 0);
+            test::return_owned<PoolCapability>(test, cap);
         };
 
         //shared_pool

@@ -7,7 +7,6 @@ module sui_lipse::nft_collection{
     use sui::tx_context::{Self, TxContext};
     use sui::vec_set::{Self, VecSet};
 
-    friend sui_lipse::amm_script;
 
     const DEFAULT_CAPACITY:u64  = 100;
 
