@@ -9,23 +9,22 @@ module sui_lipse::amm{
     use sui_lipse::amm_math;
 
 
-
-
     // ===== EVENT =====
     /// input amount is zero, including 'pair of assets<X,Y>' and 'LP_TOKEN'
     const EZeroAmount:u64 = 0;
+     /// when one of pair tokens is empty
+    const EReservesEmpty:u64 = 1;
     /// incoreect fee range, [0,100000]
-    const EInvalidFee:u64 = 1;
+    const EInvalidFee:u64 = 2;
     /// when Pool is over MAX_POOL_VALUE
-    const EFullPool:u64 = 2;
-    /// when one of pair tokens is empty
-    const EReservesEmpty:u64 = 4;
+    const EFullPool:u64 = 3;
+
 
     const EInsufficientAAmount:u64 = 6;
     const EInsufficientBAmount:u64 = 7;
 
     /// minimum of Liquiditya to prevent math rounding problems
-    const MINIMUM_LIQUIDITY:u128 = 10; //
+    const MINIMUM_LIQUIDITY:u128 = 10;
 
     /// For fees calculation
     const FEE_SCALING:u64 = 10000;
@@ -127,7 +126,7 @@ module sui_lipse::amm{
         assert!(token_x_value < MAX_POOL_VALUE && token_y_value < MAX_POOL_VALUE, EFullPool);
         assert!(fee_percentage > 0 && fee_percentage <= 10000, EInvalidFee);
 
-        let lp_shares = get_l(token_x_value, token_y_value);
+        let lp_shares = amm_math::get_l(token_x_value, token_y_value);
         let lp_supply = balance::create_supply(LP_TOKEN<V, X, Y>{});
         let lp_balance = balance::increase_supply(&mut lp_supply, lp_shares);
 
@@ -172,7 +171,7 @@ module sui_lipse::amm{
         let (amount_a, amount_b, coin_sui, coin_b) = if (token_x_r == 0 && token_y_r == 0){
             (token_x_value, token_y_value, token_x, token_y)
         }else{
-            let opt_b  = quote(token_x_r, token_y_r, token_x_value);
+            let opt_b  = amm_math::quote(token_x_r, token_y_r, token_x_value);
             if (opt_b <= token_y_value){
                 assert!(opt_b >= amount_y_min, EInsufficientBAmount);
 
@@ -180,7 +179,7 @@ module sui_lipse::amm{
                 transfer::transfer(token_y, tx_context::sender(ctx));//send back the remained token
                 (token_x_value, opt_b,  token_x, split_b)
             }else{
-                let opt_a = quote(token_y_r, token_x_r, token_y_value);
+                let opt_a = amm_math::quote(token_y_r, token_x_r, token_y_value);
                 assert!(opt_a <= token_x_value && opt_a >= amount_x_min, EInsufficientAAmount );
 
                 let split_a = coin::take<X>(coin::balance_mut<X>(&mut token_x), opt_b, ctx);
@@ -222,8 +221,8 @@ module sui_lipse::amm{
         let lp_value = coin::value(&lp_token);
         assert!(lp_value > 0, EZeroAmount);
 
-        let (token_x_output, token_y_output) = withdraw_liquidity(pool, lp_value);
-
+        let (res_x, res_y, lp_s) = get_reserves(pool);
+        let (token_x_output, token_y_output) = amm_math::withdraw_liquidity(res_x, res_y, lp_value, lp_s);
         assert!(token_x_output >= amount_a_min, EInsufficientAAmount);
         assert!(token_y_output >= amount_b_min, EInsufficientBAmount);
 
@@ -255,7 +254,7 @@ module sui_lipse::amm{
         assert!(token_x_value >0, EZeroAmount);
 
         let (reserve_x, reserve_y, _) = get_reserves(pool);
-        let output_amount = get_dy(token_x_value, reserve_x, reserve_y, pool.fee_percentage);
+        let output_amount = amm_math::get_dy(token_x_value, reserve_x, reserve_y, pool.fee_percentage, FEE_SCALING);
 
         let x_balance = coin::into_balance(token_x);//get the inner ownership
 
@@ -282,7 +281,7 @@ module sui_lipse::amm{
         let (reserve_x, reserve_y, _) = get_reserves(pool);
         assert!(reserve_x > 0 && reserve_y > 0, EReservesEmpty);
 
-        let output_amount = get_dy(token_y_value, reserve_y, reserve_x, pool.fee_percentage);
+        let output_amount = amm_math::get_dy(token_y_value, reserve_y, reserve_x, pool.fee_percentage, FEE_SCALING);
         let token_y_balance = coin::into_balance(token_y);
 
          event::emit(
@@ -298,13 +297,6 @@ module sui_lipse::amm{
 
     // ------ helper script functions -------
 
-    /// currently we are unable to get either block.timestamp & epoch, so we directly fetch the reserve's pool
-    public fun get_x_price<V, X, Y>(pool:&Pool<V, X, Y>):u64{
-        let token_x_value = balance::value(&pool.reserve_x);
-        let token_y_value = balance::value(&pool.reserve_y);
-
-        token_y_value / token_x_value
-    }
     /// for fetch pool info
     ///( sui_reserve, token_y_reserve, lp_token_supply)
     public fun get_reserves<V, X, Y>(pool: &Pool<V, X, Y>): (u64, u64, u64) {
@@ -314,37 +306,7 @@ module sui_lipse::amm{
             balance::supply_value(&pool.lp_supply)
         )
     }
-    /// for fetch pool info
-    public fun get_l(token_x_value:u64, token_y_value: u64):u64{
-        amm_math::sqrt(token_x_value) * amm_math::sqrt(token_y_value)
-    }
-    /// for add liquidity
-    /// b' (optimzied_) = (Y/X) * a, subjected to Y/X = b/a
-    public fun quote(reserve_a:u64, reserve_b:u64, input_a:u64):u64{
-        assert!(reserve_a > 0 && reserve_b > 0, EReservesEmpty);
-        assert!(input_a > 0, EInsufficientAAmount);
 
-        (reserve_b/ reserve_a) * input_a
-    }
-    /// swap
-    /// dy = (dx * y) / (dx + x), at dx' = dx(1 - fee)
-    public fun get_dy(dx:u64, x:u64, y:u64, f:u64):u64{
-        let dx_fee_deduction = (FEE_SCALING - f) * dx;
-        let numerator = dx_fee_deduction * y;
-        let denominator = FEE_SCALING * x + dx_fee_deduction;
-
-        (numerator / denominator)
-    }
-    /// for remove_liquidity
-    /// (dx, dy) = ((lp_input/ LP_supply) * reserve_x ,(lp_input/ LP_supply) * reserve_y)
-    public fun withdraw_liquidity<V, X, Y>(pool:&Pool<V, X, Y>, lp_value:u64):(u64, u64){
-        assert!(lp_value > 0, EZeroAmount);
-
-        let (token_x_r, token_y_r, lp_supply) = get_reserves(pool);
-        assert!(token_x_r > 0 && token_y_r > 0, EReservesEmpty);
-
-        ((token_x_r * lp_value / lp_supply), (token_y_r * lp_value / lp_supply))
-    }
     //glue calling for init the module
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
@@ -359,6 +321,8 @@ module sui_lipse::amm_test{
     use sui::coin::{Self, mint_for_testing as mint, destroy_for_testing as burn};
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
     use sui_lipse::amm::{Self, Pool, LP_TOKEN, PoolCapability};
+    use sui_lipse::amm_math;
+
     use std::debug;
 
     struct TOKEN_X {} // token_x
@@ -370,13 +334,17 @@ module sui_lipse::amm_test{
     const SUI_AMT: u64 = 1000000; // 10^6
     const TOKEN_X_AMT:u64 = 5000000; // 5 * 10^6
     const TOKEN_Y_AMT: u64 = 1000000000; // 10^9
+
+    const FEE_SCALING: u64 = 10000;
     const FEE: u64 = 3;
 
-    #[test] fun test_init_sui_pool(){
+    #[test] fun test_init_pool(){
         let scenario = test::begin(&@0x1);
-
         test_init_pool_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
-        //test_init_pool_<JAREK, TOKEN_X, TOKEN_Y>(TOKEN_X_AMT, TOKEN_Y_AMT, &mut scenario);
+    }
+    #[test] fun test_init_sui_pool(){
+        let scenario = test::begin(&@0x2);
+        test_init_pool_<JAREK, TOKEN_X, TOKEN_Y>(TOKEN_X_AMT, TOKEN_Y_AMT, &mut scenario);
     }
      #[test] fun test_swap_sui() {
         let scenario = test::begin(&@0x1);
@@ -417,7 +385,7 @@ module sui_lipse::amm_test{
                 ctx(test)
             );
 
-            assert!(burn(lsp) == amm::get_l(token_x_amt, token_y_amt), 0);
+            assert!(burn(lsp) == amm_math::get_l(token_x_amt, token_y_amt), 0);
             test::return_owned<PoolCapability>(test, cap);
         };
 
@@ -429,7 +397,7 @@ module sui_lipse::amm_test{
 
             assert!(sui_r == token_x_amt,0);
             assert!(token_y_r == token_y_amt,0);
-            assert!(lp_s == amm::get_l(token_x_amt, token_y_amt),0);
+            assert!(lp_s == amm_math::get_l(token_x_amt, token_y_amt),0);
 
             test::return_shared(test, pool);
         };
@@ -447,7 +415,7 @@ module sui_lipse::amm_test{
             let token_y = amm::swap_token_x<V, X, Y>(shared_pool, mint<X>(5000, ctx(test)), ctx(test));
 
             let left = burn(token_y);
-            let right = amm::get_dy(5000,token_x_amt, token_y_amt, FEE);
+            let right = amm_math::get_dy(5000, token_x_amt, token_y_amt, FEE, FEE_SCALING);
             debug::print(&left);
             debug::print(&right);
 
@@ -500,10 +468,11 @@ module sui_lipse::amm_test{
             let pool = test::take_shared<Pool<V, X, Y>>(test);
             let shared_pool = test::borrow_mut(&mut pool);
             // (X, Y) = (5000000, 995026361)
-            let (_, _, lp) = amm::get_reserves(shared_pool);
+            let (x, y, lp) = amm::get_reserves(shared_pool);
             let lp_token = mint<LP_TOKEN<V, X, Y>>(lp, ctx(test));
             //expected
-            let (sui_withdraw, token_y_withdraw) = amm::withdraw_liquidity(shared_pool, coin::value<LP_TOKEN<V, X, Y>>(&lp_token));
+
+            let (sui_withdraw, token_y_withdraw) = amm_math::withdraw_liquidity(x, y, coin::value(&lp_token),lp);
 
             let (withdraw_sui, withdraw_token_y) = amm::remove_liquidity_(shared_pool, lp_token, sui_withdraw, token_y_withdraw, ctx(test));
 
