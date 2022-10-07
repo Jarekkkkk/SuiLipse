@@ -2,6 +2,7 @@ module sui_lipse::amm_pair{
     use sui::tx_context::TxContext;
     use sui_lipse::amm;
 
+
     /// only moduler publisher can create the pool
     /// no type argument required sicnce it could be applied to all kinds of pool
 
@@ -12,4 +13,5 @@ module sui_lipse::amm_pair{
     fun init(ctx: &mut TxContext){
         amm::create_capability(SUI_JRK{}, ctx);
     }
+
 }

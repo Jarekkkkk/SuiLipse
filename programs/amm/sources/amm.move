@@ -49,6 +49,7 @@ module sui_lipse::amm{
 
     struct PoolCapability<phantom V> has key, store {
         id: UID,
+        //could config further features
     }
 
     struct Pool<phantom V, phantom X, phantom Y> has key{
@@ -102,12 +103,14 @@ module sui_lipse::amm{
         );
     }
 
-
+    /// for guardians creating type when publishing the module
     public fun create_capability<T: drop>(_: T, ctx: &mut TxContext){
-        let cap = PoolCapability<T>{
-            id: object::new(ctx)
-        };
-        transfer::transfer(cap, tx_context::sender(ctx));
+        transfer::transfer(
+            PoolCapability<T>{
+                id: object::new(ctx)
+            },
+            tx_context::sender(ctx)
+        );
     }
 
     // ===== CREATE_POOL =====
@@ -122,14 +125,14 @@ module sui_lipse::amm{
         symbol: vector<u8>,
         ctx: &mut TxContext
     ){
+        //verify in non-innder function
         let sender = tx_context::sender(ctx);
         assert!(vec_set::contains<address>(&guardians.guardians, &sender), ENotGuardians);
 
-        transfer::transfer(
+        transfer::share_object(
             create_pool_(
                  cap, token_x, token_y, fee_percentage, name, symbol, ctx
-            ),
-            sender
+            )
         );
     }
 
@@ -352,7 +355,6 @@ module sui_lipse::amm_test{
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
     use sui_lipse::amm::{Self, Pool, LP_TOKEN, PoolCapability};
     use sui_lipse::amm_math;
-
     use std::debug;
 
     struct TOKEN_X {} // token_x
