@@ -7,18 +7,21 @@ module sui_lipse::amm{
     use sui::event;
     use std::string::{Self, String};
     use sui_lipse::amm_math;
+    use sui_lipse::amm_pair::PoolCapability;
+    use sui::vec_set::{Self, VecSet};
 
 
     // ===== EVENT =====
     /// input amount is zero, including 'pair of assets<X,Y>' and 'LP_TOKEN'
     const EZeroAmount:u64 = 0;
-     /// when one of pair tokens is empty
+    /// when one of pair tokens is empty
     const EReservesEmpty:u64 = 1;
     /// incoreect fee range, [0,100000]
     const EInvalidFee:u64 = 2;
     /// when Pool is over MAX_POOL_VALUE
     const EFullPool:u64 = 3;
 
+    const ENotGuardians:u64 = 4;
 
     const EInsufficientAAmount:u64 = 6;
     const EInsufficientBAmount:u64 = 7;
@@ -35,14 +38,15 @@ module sui_lipse::amm{
     };
 
     // ===== Object =====
-    /// only moduler publisher can create the pool
-    /// no type argument required sicnce it could be applied to all kinds of pool
-    struct PoolCapability has key, store {
-        id: UID,
-    }
 
     //must be `uppercase` to become one-time witness
     struct LP_TOKEN<phantom V, phantom X, phantom Y> has drop {}
+
+
+    struct Guardians has key{
+        id: UID,
+        guardians: VecSet<address>//only guardians can create pool
+    }
 
     struct Pool<phantom V, phantom X, phantom Y> has key{
         id: UID,
@@ -82,18 +86,24 @@ module sui_lipse::amm{
         amountOut:u64,
     }
 
+    /// publish once to trasnfer Capabilty to module publisher
     fun init(ctx:&mut TxContext){
-         transfer::transfer(
-             PoolCapability{id: object::new(ctx)},
-             tx_context::sender(ctx)
-         )
+        let guardians = vec_set::empty<address>();
+        vec_set::insert(&mut guardians, tx_context::sender(ctx));
+
+        transfer::share_object(
+            Guardians{
+                id: object::new(ctx),
+                guardians
+            }
+        );
     }
 
     // ===== CREATE_POOL =====
-    /// onlt module publisher could create pool by passing the witess type
-    entry fun create_pool<V: drop, X, Y>(
-       verifier: V,
-        cap: &PoolCapability,
+    /// only guardians could create pool by passing the witness type
+    entry fun create_pool<V, X, Y>(
+        guardians: &Guardians,
+        cap: &PoolCapability<V>,
         token_x: Coin<X>,
         token_y: Coin<Y>,
         fee_percentage: u64,
@@ -101,17 +111,19 @@ module sui_lipse::amm{
         symbol: vector<u8>,
         ctx: &mut TxContext
     ){
+        let sender = tx_context::sender(ctx);
+        assert!(vec_set::contains<address>(&guardians.guardians, &sender), ENotGuardians);
+
         transfer::transfer(
             create_pool_(
-                verifier, cap, token_x, token_y, fee_percentage, name, symbol, ctx
+                 cap, token_x, token_y, fee_percentage, name, symbol, ctx
             ),
-            tx_context::sender(ctx)
+            sender
         );
     }
 
-    public fun create_pool_<V:drop, X, Y>(
-        _verifier: V,
-        _capability: &PoolCapability,
+    public fun create_pool_<V, X, Y>(
+        _capability: &PoolCapability<V>,
         token_x: Coin<X>,
         token_y: Coin<Y>,
         fee_percentage: u64,
@@ -212,11 +224,11 @@ module sui_lipse::amm{
     // ===== REMOVE_LIQUIDITY =====
 
     public fun remove_liquidity_<V, X, Y>(
-    pool:&mut Pool<V, X, Y>,
-    lp_token:Coin<LP_TOKEN<V, X, Y>>,
-    amount_a_min:u64,
-    amount_b_min:u64,
-    ctx:&mut TxContext
+        pool:&mut Pool<V, X, Y>,
+        lp_token:Coin<LP_TOKEN<V, X, Y>>,
+        amount_a_min:u64,
+        amount_b_min:u64,
+        ctx:&mut TxContext
     ):(Coin<X>, Coin<Y>){
         let lp_value = coin::value(&lp_token);
         assert!(lp_value > 0, EZeroAmount);
@@ -246,15 +258,15 @@ module sui_lipse::amm{
 
     //TODO: sort the token to optimize and migrate below 2 functinos
     public fun swap_token_x<V, X, Y>(
-    pool: &mut Pool<V, X, Y>,
-    token_x: Coin<X>,
-    ctx: &mut TxContext
+        pool: &mut Pool<V, X, Y>,
+        token_x: Coin<X>,
+        ctx: &mut TxContext
     ):Coin<Y>{
         let token_x_value = coin::value(&token_x);
         assert!(token_x_value >0, EZeroAmount);
 
         let (reserve_x, reserve_y, _) = get_reserves(pool);
-        let output_amount = amm_math::get_dy(token_x_value, reserve_x, reserve_y, pool.fee_percentage, FEE_SCALING);
+        let output_amount = amm_math::get_output(token_x_value, reserve_x, reserve_y, pool.fee_percentage, FEE_SCALING);
 
         let x_balance = coin::into_balance(token_x);//get the inner ownership
 
@@ -271,9 +283,9 @@ module sui_lipse::amm{
 
     //this could be omited as well
     public fun swap_token_y<V, X, Y>(
-    pool: &mut Pool<V, X, Y>,
-    token_y: Coin<Y>,
-    ctx: &mut TxContext
+        pool: &mut Pool<V, X, Y>,
+        token_y: Coin<Y>,
+        ctx: &mut TxContext
     ):Coin<X>{
         let token_y_value = coin::value(&token_y);
         assert!(token_y_value > 0, EZeroAmount);
@@ -281,7 +293,7 @@ module sui_lipse::amm{
         let (reserve_x, reserve_y, _) = get_reserves(pool);
         assert!(reserve_x > 0 && reserve_y > 0, EReservesEmpty);
 
-        let output_amount = amm_math::get_dy(token_y_value, reserve_y, reserve_x, pool.fee_percentage, FEE_SCALING);
+        let output_amount = amm_math::get_output(token_y_value, reserve_y, reserve_x, pool.fee_percentage, FEE_SCALING);
         let token_y_balance = coin::into_balance(token_y);
 
          event::emit(
@@ -307,6 +319,13 @@ module sui_lipse::amm{
         )
     }
 
+    public fun name<V ,X, Y>(pool: &Pool<V, X, Y>):&String{
+        &pool.name
+    }
+    public fun symbol<V ,X, Y>(pool: &Pool<V ,X, Y>):&String{
+        &pool.symbol
+    }
+
     //glue calling for init the module
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
@@ -320,7 +339,8 @@ module sui_lipse::amm_test{
     use sui::sui::SUI;
     use sui::coin::{Self, mint_for_testing as mint, destroy_for_testing as burn};
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
-    use sui_lipse::amm::{Self, Pool, LP_TOKEN, PoolCapability};
+    use sui_lipse::amm::{Self, Pool, LP_TOKEN};
+    use sui_lipse::amm_pair::PoolCapability;
     use sui_lipse::amm_math;
 
     use std::debug;
@@ -373,9 +393,8 @@ module sui_lipse::amm_test{
 
         //create pool
         next_tx(test, &lp); {
-            let cap = test::take_owned<PoolCapability>(test);
+            let cap = test::take_owned<PoolCapability<JAREK>>(test);
             let lsp = amm::create_pool_(
-                JAREK {},
                 &cap,
                 mint<X>(token_x_amt, ctx(test)),
                 mint<Y>(token_y_amt, ctx(test)),
@@ -386,7 +405,7 @@ module sui_lipse::amm_test{
             );
 
             assert!(burn(lsp) == amm_math::get_l(token_x_amt, token_y_amt), 0);
-            test::return_owned<PoolCapability>(test, cap);
+            test::return_owned<PoolCapability<JAREK>>(test, cap);
         };
 
         //shared_pool
@@ -415,7 +434,7 @@ module sui_lipse::amm_test{
             let token_y = amm::swap_token_x<V, X, Y>(shared_pool, mint<X>(5000, ctx(test)), ctx(test));
 
             let left = burn(token_y);
-            let right = amm_math::get_dy(5000, token_x_amt, token_y_amt, FEE, FEE_SCALING);
+            let right = amm_math::get_output(5000, token_x_amt, token_y_amt, FEE, FEE_SCALING);
             debug::print(&left);
             debug::print(&right);
 

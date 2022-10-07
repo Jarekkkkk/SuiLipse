@@ -55,7 +55,7 @@ module sui_lipse::nft_collection{
         // The creator of the NFT
         creator: address,
         // The name of the NFT
-        name: String,
+        name: String
     }
 
     // ===== Public view functions =====
