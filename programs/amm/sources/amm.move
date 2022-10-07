@@ -7,7 +7,6 @@ module sui_lipse::amm{
     use sui::event;
     use std::string::{Self, String};
     use sui_lipse::amm_math;
-    use sui_lipse::amm_pair::PoolCapability;
     use sui::vec_set::{Self, VecSet};
 
 
@@ -46,6 +45,10 @@ module sui_lipse::amm{
     struct Guardians has key{
         id: UID,
         guardians: VecSet<address>//only guardians can create pool
+    }
+
+    struct PoolCapability<phantom V> has key, store {
+        id: UID,
     }
 
     struct Pool<phantom V, phantom X, phantom Y> has key{
@@ -97,6 +100,14 @@ module sui_lipse::amm{
                 guardians
             }
         );
+    }
+
+
+    public fun create_capability<T: drop>(_: T, ctx: &mut TxContext){
+        let cap = PoolCapability<T>{
+            id: object::new(ctx)
+        };
+        transfer::transfer(cap, tx_context::sender(ctx));
     }
 
     // ===== CREATE_POOL =====
@@ -339,8 +350,7 @@ module sui_lipse::amm_test{
     use sui::sui::SUI;
     use sui::coin::{Self, mint_for_testing as mint, destroy_for_testing as burn};
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
-    use sui_lipse::amm::{Self, Pool, LP_TOKEN};
-    use sui_lipse::amm_pair::PoolCapability;
+    use sui_lipse::amm::{Self, Pool, LP_TOKEN, PoolCapability};
     use sui_lipse::amm_math;
 
     use std::debug;
@@ -389,11 +399,12 @@ module sui_lipse::amm_test{
         //init the module
         next_tx(test, &lp);{
             amm::init_for_testing(ctx(test));
+            amm::create_capability(JAREK{}, ctx(test));
         };
 
         //create pool
         next_tx(test, &lp); {
-            let cap = test::take_owned<PoolCapability<JAREK>>(test);
+            let cap = test::take_owned<PoolCapability<V>>(test);
             let lsp = amm::create_pool_(
                 &cap,
                 mint<X>(token_x_amt, ctx(test)),
@@ -405,7 +416,7 @@ module sui_lipse::amm_test{
             );
 
             assert!(burn(lsp) == amm_math::get_l(token_x_amt, token_y_amt), 0);
-            test::return_owned<PoolCapability<JAREK>>(test, cap);
+            test::return_owned<PoolCapability<V>>(test, cap);
         };
 
         //shared_pool
@@ -447,7 +458,7 @@ module sui_lipse::amm_test{
     fun test_swap_token_y_<V, X, Y>(token_x_amt: u64, token_y_amt:u64, test: &mut Scenario){
         let (_, trader) = people();
 
-         test_init_pool_<V, X, Y>(token_x_amt, token_y_amt, test);
+        test_init_pool_<V, X, Y>(token_x_amt, token_y_amt, test);
 
         next_tx(test, &trader);{
             let pool = test::take_shared<Pool<V, X, Y>>(test);
