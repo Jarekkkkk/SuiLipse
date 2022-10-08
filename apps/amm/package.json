@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "sass": "node-sass --output-style compressed src/sass/index.scss > src/style.css",
+    "sass": "node-sass --output-style compressed src/style/index.scss > src/style/style.css",
     "sass-watch": "npm run css-build -- --watch"
   },
   "dependencies": {
+    "@mysten/sui.js": "^0.11.0",
     "sass": "^1.55.0",
     "vue": "^3.2.37",
     "vue-router": "^4.1.5"

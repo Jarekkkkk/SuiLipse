@@ -1,11 +1,20 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { getGateway, GATEWAYS } from '../sui/gateway'
+
+
+const data = ref("")
+const get_gateway = (a: string) => {
+    data.value = getGateway(a)
+}
+
 </script>
 <template >
     <nav class="navbar" role="navigation" aria-label="main navigation">
         <div class="navbar-brand">
             <a class="navbar-item" href="https://medium.com">
                 <img src="../assets/dinosaur.jpeg" alt="dinasour">
-                <h1 class="title is-3 pl-1">SuiLipse</h1>
+                <h1 class="title is-3 pl-1">data</h1>
             </a>
 
             <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false"
@@ -25,7 +34,7 @@
                 </router-link>
                 <router-link :to="{ name: 'coin-create' }">
                     <a class="navbar-item">
-                        Token
+                        {data}
                     </a>
                 </router-link>
                 <router-link :to="{ name: 'amm-create' }">
@@ -38,7 +47,7 @@
             <div id="login">
                 <div class="navbar-item">
                     <div class="buttons">
-                        <a class="button is-primary">
+                        <a @click="get_gateway('a')" class="button is-primary">
                             <strong>Sign up</strong>
                         </a>
                     </div>
@@ -47,9 +56,7 @@
         </div>
     </nav>
 </template>
-<style lang="scss">
-$link: #ff2146;
-
+<style scoped>
 .navbar {
     padding: 12px;
     font-size: 1.2rem;

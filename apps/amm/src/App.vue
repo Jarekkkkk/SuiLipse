@@ -8,11 +8,7 @@ import Nav from './components/Nav.vue';
 
 <template>
   <Nav />
-  <div style="display: flex" class="is-justify-content-center">
-    <div style="width: 650px; margin-bottom: 40px" class="mt-6">
-      <router-view></router-view>
-    </div>
-  </div>
+  <router-view></router-view>
 </template>
 
 <style scoped>

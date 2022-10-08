@@ -1,38 +1,39 @@
 <template >
-    <div>
-        <h1 class="title">
-            Bulma
-        </h1>
-
-        <p class="subtitle">
-            Modern CSS framework based on <a
-                href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox">Flexbox</a>
-        </p>
-
-        <div class="field">
-            <div class="control">
-                <input class="input" type="text" placeholder="Input">
+    <nav class="level">
+        <div class="level-item has-text-centered">
+            <div>
+                <p class="heading">Tweets</p>
+                <p class="title">3,456</p>
             </div>
         </div>
-
-        <div class="field">
-            <p class="control">
-                <span class="select">
-                    <select>
-                        <option>Select dropdown</option>
-                    </select>
-                </span>
-            </p>
+        <div class="level-item has-text-centered">
+            <div>
+                <p class="heading">Following</p>
+                <p class="title">123</p>
+            </div>
         </div>
-
-        <div class="buttons">
-            <a class="button is-primary">Primary</a>
-            <a class="button is-link">Link</a>
+        <div class="level-item has-text-centered">
+            <div>
+                <p class="heading">Followers</p>
+                <p class="title">456K</p>
+            </div>
         </div>
-    </div>
+        <div class="level-item has-text-centered">
+            <div>
+                <p class="heading">Likes</p>
+                <p class="title">789</p>
+            </div>
+        </div>
+    </nav>
 </template>
-<script setup lang="ts">
+<script lang="ts">
+
 </script>
 <style scoped>
-
+.level {
+    margin: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly
+}
 </style>
