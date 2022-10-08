@@ -11,6 +11,7 @@
     "sass-watch": "npm run css-build -- --watch"
   },
   "dependencies": {
+    "sass": "^1.55.0",
     "vue": "^3.2.37",
     "vue-router": "^4.1.5"
   },
