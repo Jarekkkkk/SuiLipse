@@ -1,0 +1,26 @@
+{
+  "name": "amm",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "sass": "node-sass --output-style compressed src/sass/index.scss > src/style.css",
+    "sass-watch": "npm run css-build -- --watch"
+  },
+  "dependencies": {
+    "vue": "^3.2.37",
+    "vue-router": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^18.8.3",
+    "@vitejs/plugin-vue": "^3.1.0",
+    "bulma": "^0.9.4",
+    "node-sass": "^7.0.3",
+    "typescript": "^4.6.4",
+    "vite": "^3.1.0",
+    "vue-tsc": "^0.40.4"
+  }
+}
