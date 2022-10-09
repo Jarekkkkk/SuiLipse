@@ -1,14 +1,13 @@
 
 <script setup lang="ts">
-import Nav from './components/Nav.vue';
-
-// get the gateway and required state from sui.pkg
+import Nav from "@/components/Nav.vue"
 
 </script>
 
 <template>
   <Nav />
   <router-view></router-view>
+  <h1>Hello</h1>
 </template>
 
 <style scoped>

@@ -1,3 +1,14 @@
+<script setup lang="ts">
+import { onMounted } from 'vue'
+import { getGateway } from '../sui/gateway'
+
+
+onMounted(() => {
+    console.log(getGateway('123'));
+})
+
+</script>
+
 <template >
     <nav class="level">
         <div class="level-item has-text-centered">
@@ -9,7 +20,7 @@
         <div class="level-item has-text-centered">
             <div>
                 <p class="heading">Following</p>
-                <p class="title">123</p>
+                <p class="title">sfsd</p>
             </div>
         </div>
         <div class="level-item has-text-centered">
@@ -26,9 +37,7 @@
         </div>
     </nav>
 </template>
-<script lang="ts">
 
-</script>
 <style scoped>
 .level {
     margin: 1rem;

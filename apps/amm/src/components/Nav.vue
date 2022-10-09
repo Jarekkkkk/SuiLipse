@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
-const count = ref(0)
 
-const i = () => count.value++;
 
 
 </script>
@@ -12,7 +10,7 @@ const i = () => count.value++;
         <div class="navbar-brand">
             <a class="navbar-item" href="https://medium.com">
                 <img src="../assets/dinosaur.jpeg" alt="dinasour">
-                <h1 class="title is-3 pl-1">data</h1>
+                <h1 class="title is-3 pl-1">Suilipse</h1>
             </a>
 
             <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false"
@@ -41,15 +39,16 @@ const i = () => count.value++;
                     </a>
                 </router-link>
             </div>
-
             <div id="login">
                 <div class="navbar-item">
                     <div class="buttons">
-                        <a @click="i" class="button is-primary">
-                            <strong>{{count}}</strong>
+                        <a class="button is-primary">
+                            <strong>Login</strong>
                         </a>
                     </div>
                 </div>
+
+
             </div>
         </div>
     </nav>
