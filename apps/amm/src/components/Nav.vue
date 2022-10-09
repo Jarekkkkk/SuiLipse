@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { getGateway, GATEWAYS } from '../sui/gateway'
 
+const count = ref(0)
 
-const data = ref("")
-const get_gateway = (a: string) => {
-    data.value = getGateway(a)
-}
+const i = () => count.value++;
+
 
 </script>
 <template >
@@ -34,7 +32,7 @@ const get_gateway = (a: string) => {
                 </router-link>
                 <router-link :to="{ name: 'coin-create' }">
                     <a class="navbar-item">
-                        {data}
+                        Coin
                     </a>
                 </router-link>
                 <router-link :to="{ name: 'amm-create' }">
@@ -47,8 +45,8 @@ const get_gateway = (a: string) => {
             <div id="login">
                 <div class="navbar-item">
                     <div class="buttons">
-                        <a @click="get_gateway('a')" class="button is-primary">
-                            <strong>Sign up</strong>
+                        <a @click="i" class="button is-primary">
+                            <strong>{{count}}</strong>
                         </a>
                     </div>
                 </div>
