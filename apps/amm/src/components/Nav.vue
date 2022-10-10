@@ -27,7 +27,7 @@ const currentClusterWithEmoji = computed(() => {
         <div class="navbar-brand">
             <a class="navbar-item" href="https://medium.com">
                 <img src="../assets/dinosaur.jpeg" alt="dinasour">
-                <h1 class="title is-3 pl-1">SuiLbipse</h1>
+                <h1 class="title is-3 pl-1">SuiLipse</h1>
             </a>
 
             <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false"
