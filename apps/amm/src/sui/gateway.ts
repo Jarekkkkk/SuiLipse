@@ -3,7 +3,7 @@ import { ref } from "vue"
 import { JsonRpcProvider } from "@mysten/sui.js";
 
 // === TYPE ===
-enum Gateway {
+export enum Gateway {
   devent = "Devent",
   local = "Local"
 }
@@ -39,5 +39,4 @@ export const changeClient = (network: Gateway | string) => {
 
   chosenGateway.value = network
 
-  console.log(chosenGateway.value);
 }

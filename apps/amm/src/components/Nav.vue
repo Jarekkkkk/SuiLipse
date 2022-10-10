@@ -1,8 +1,24 @@
 <script setup lang="ts">
+import { objectToString } from '@vue/shared';
+import { onMounted, computed } from 'vue';
+import { GATEWAYS, Gateway, chosenGateway, changeClient } from '../sui/gateway'
+const currentClusterWithEmoji = computed(() => {
+    let emoji
+    let gateway
 
-import { onMounted } from 'vue';
-import { GATEWAYS, chosenGateway, changeClient } from '../sui/gateway'
-const currentClusterWithEmoji = chosenGateway.value + " " + "🤔"
+    switch (chosenGateway.value) {
+        case GATEWAYS.Devent:
+            gateway = "Devnet"
+            emoji = "💦";
+            break;
+        case GATEWAYS.Local:
+            gateway = "Local"
+            emoji = "💧";
+            break;
+    }
+    console.log(chosenGateway.value)
+    return gateway + " " + emoji
+})
 
 
 </script>
@@ -11,7 +27,7 @@ const currentClusterWithEmoji = chosenGateway.value + " " + "🤔"
         <div class="navbar-brand">
             <a class="navbar-item" href="https://medium.com">
                 <img src="../assets/dinosaur.jpeg" alt="dinasour">
-                <h1 class="title is-3 pl-1">Suilipse</h1>
+                <h1 class="title is-3 pl-1">SuiLbipse</h1>
             </a>
 
             <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false"
@@ -41,7 +57,7 @@ const currentClusterWithEmoji = chosenGateway.value + " " + "🤔"
                 </router-link>
             </div>
             <div id="login" class="navbar-item has-dropdown is-hoverable">
-                <a class="navbar-link"> {{ currentClusterWithEmoji }} </a>
+                <a class="navbar-link">{{ currentClusterWithEmoji }} </a>
 
                 <div class="navbar-dropdown is-right">
                     <a v-for="cluster in GATEWAYS" :key="cluster" :class="{
