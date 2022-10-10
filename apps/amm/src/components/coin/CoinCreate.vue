@@ -1,89 +1,64 @@
 <template >
-
-    <div class="box">
+    <h1 class="title is-3">COIN CREATOR</h1>
+    <div style="margin-top: 30px">
+        <article v-if="createdTokenAddress" class="message is-black">
+            <div class="message-body">
+                Success! Take a look at your created token:
+                <a :href="tokenLink" target="_blank" rel="noopener noreferrer">{{
+                createdTokenAddress
+                }}</a>
+            </div>
+        </article>
+        <article v-else-if="errorMessage" class="message is-danger">
+            <div class="message-body">
+                {{ errorMessage }}
+            </div>
+        </article>
         <div class="field">
-            <label class="label">Name</label>
+            <label class="label">Package</label>
             <div class="control">
                 <input class="input" type="text" placeholder="Text input">
             </div>
+            <p class="help">This is a help text</p>
         </div>
-
         <div class="field">
-            <label class="label">Username</label>
-            <div class="control has-icons-left has-icons-right">
-                <input class="input is-success" type="text" placeholder="Text input" value="bulma">
-                <span class="icon is-small is-left">
-                    <i class="fas fa-user"></i>
-                </span>
-                <span class="icon is-small is-right">
-                    <i class="fas fa-check"></i>
-                </span>
+            <label class="label">Capability_ID</label>
+            <div class="control">
+                <input class="input" type="text" placeholder="Text input">
             </div>
-            <p class="help is-success">This username is available</p>
+            <p class="help">This is a help text</p>
         </div>
-
         <div class="field">
-            <label class="label">Email</label>
-            <div class="control has-icons-left has-icons-right">
-                <input class="input is-danger" type="email" placeholder="Email input" value="hello@">
-                <span class="icon is-small is-left">
-                    <i class="fas fa-envelope"></i>
-                </span>
-                <span class="icon is-small is-right">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </span>
+            <label class="label">Recipient</label>
+            <div class="control">
+                <input class="input" type="text" placeholder="Text input">
             </div>
-            <p class="help is-danger">This email is invalid</p>
+            <p class="help">This is a help text</p>
         </div>
-
         <div class="field">
-            <label class="label">Subject</label>
+            <label class="label">Amount</label>
             <div class="control">
-                <div class="select">
-                    <select>
-                        <option>Select dropdown</option>
-                        <option>With options</option>
-                    </select>
-                </div>
+                <input class="input" type="number" placeholder="Text input">
             </div>
+            <p class="help">This is a help text</p>
         </div>
 
-        <div class="field">
-            <div class="control">
-                <label class="checkbox">
-                    <input type="checkbox">
-                    I agree to the <a href="#">terms and conditions</a>
-                </label>
-            </div>
+        <div class="button_f">
+            <button :class="{ 'is-loading': creatingToken }" class="button is-medium is-primary is-outlined"
+                @click="createToken">
+                Create new token
+            </button>
         </div>
 
-        <div class="field">
-            <div class="control">
-                <label class="radio">
-                    <input type="radio" name="question">
-                    Yes
-                </label>
-                <label class="radio">
-                    <input type="radio" name="question">
-                    No
-                </label>
-            </div>
-        </div>
-
-        <div class="field is-grouped">
-            <div class="control">
-                <button @click="submit" class="button is-link">Submit</button>
-            </div>
-            <div class="control">
-                <button class="button is-link is-light">Cancel</button>
-            </div>
-        </div>
     </div>
 </template>
 
-<script setup lang="ts">import { reactive } from 'vue';
-import { connection, getGateway, changeClient, chosenGateway } from '../../sui/gateway'
 
+<script setup lang="ts">import { reactive, ref } from 'vue';
+const createdTokenAddress = ref("");
+const creatingToken = ref(false);
+const tokenLink = ref("");
+const errorMessage = ref("");
 
 const form = reactive(
     {
@@ -96,6 +71,8 @@ const form = reactive(
 const submit = () => {
     console.log('submit the coin create form');
 }
+
+const createToken = () => { console.log("create token "); }
 </script>
 
 <!-- /// Mint and Transfer Coin with signer holding Capability
@@ -109,7 +86,17 @@ MintAndTransfer {
 }, -->
 
 <style scoped>
-.box {
-    padding: 5rem 12rem;
+.title {
+    margin-top: 3rem;
+    text-align: center;
+}
+
+.button_f {
+    display: flex;
+    justify-content: center;
+}
+
+.button {
+    font-weight: 800
 }
 </style>
