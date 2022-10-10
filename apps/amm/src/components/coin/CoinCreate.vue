@@ -72,7 +72,7 @@
 
         <div class="field is-grouped">
             <div class="control">
-                <button class="button is-link">Submit</button>
+                <button @click="submit" class="button is-link">Submit</button>
             </div>
             <div class="control">
                 <button class="button is-link is-light">Cancel</button>
@@ -81,7 +81,9 @@
     </div>
 </template>
 
-<script lang="ts">import { reactive } from 'vue';
+<script setup lang="ts">import { reactive } from 'vue';
+import { connection, getGateway, changeClient, chosenGateway } from '../../sui/gateway'
+
 
 const form = reactive(
     {
@@ -90,6 +92,20 @@ const form = reactive(
         amount: 0
     }
 )
+
+const submit = async () => {
+    console.log('object');
+    try {
+        let rpc = changeClient(chosenGateway.value)
+
+        const objects = await rpc.getObjectsOwnedByAddress(
+            '0x87574ed593f5745b939bf1790501c7d6acc1592a'
+        );
+        console.log(objects);
+    } catch (error) {
+        console.error(error)
+    }
+}
 </script>
 
 <!-- /// Mint and Transfer Coin with signer holding Capability
