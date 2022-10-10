@@ -93,18 +93,8 @@ const form = reactive(
     }
 )
 
-const submit = async () => {
-    console.log('object');
-    try {
-        let rpc = changeClient(chosenGateway.value)
-
-        const objects = await rpc.getObjectsOwnedByAddress(
-            '0x87574ed593f5745b939bf1790501c7d6acc1592a'
-        );
-        console.log(objects);
-    } catch (error) {
-        console.error(error)
-    }
+const submit = () => {
+    console.log('submit the coin create form');
 }
 </script>
 

@@ -1,33 +1,20 @@
 <template >
-    <aside class="menu">
-        <p class="menu-label">
-            General
-        </p>
-        <ul class="menu-list">
-            <li><a>Dashboard</a></li>
-            <li><a>Customers</a></li>
-        </ul>
-        <p class="menu-label">
-            Administration
-        </p>
-        <ul class="menu-list">
-            <li><a>Team Settings</a></li>
-            <li>
-                <a class="is-active">Manage Your Team</a>
-                <ul>
-                    <li><a>Members</a></li>
-                    <li><a>Plugins</a></li>
-                    <li><a>Add a member</a></li>
-                </ul>
-            </li>
-            <li><a>Invitations</a></li>
-            <li><a>Cloud Storage Environment Settings</a></li>
-            <li><a>Authentication</a></li>
-        </ul>
-    </aside>
+    <tr>
+        <th>{{idx}}</th>
+        <td>{{objectId}}</td>
+        <td>{{type}}</td>
+        <td>{{owner}}</td>
+        <td>{{version}}</td>
+    </tr>
 </template>
 <script setup lang="ts">
-
+defineProps<{
+    idx: number,
+    objectId: string,
+    type: string, //0x2::coin::Coin&lt;0x2::sui::SUI&gt
+    owner: string,
+    version: number
+}>()
 </script>
 <style>
 .post {

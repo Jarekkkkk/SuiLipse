@@ -33,7 +33,7 @@ const create_connection = (network: Gateway | string) => {
   return new_client
 }
 
-export const chosenGateway = ref<Gateway | string>(GATEWAYS[Gateway.local]);//questions: what's precise type
+export const chosenGateway = ref<Gateway | string>(GATEWAYS[Gateway.devent]);//questions: what's precise type
 export const changeClient = (network: Gateway | string) => {
   let client = create_connection(network)
 

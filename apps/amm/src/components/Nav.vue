@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { objectToString } from '@vue/shared';
-import { onMounted, computed } from 'vue';
+import { computed } from 'vue';
 import { GATEWAYS, Gateway, chosenGateway, changeClient } from '../sui/gateway'
 const currentClusterWithEmoji = computed(() => {
     let emoji
