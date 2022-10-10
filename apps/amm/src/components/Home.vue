@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { getGateway } from '../sui/gateway'
 
 
-onMounted(() => {
-    console.log(getGateway('123'));
-})
 
 </script>
 

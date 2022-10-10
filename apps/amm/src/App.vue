@@ -7,10 +7,9 @@ import Nav from "@/components/Nav.vue"
 <template>
   <Nav />
   <router-view></router-view>
-  <h1>Hello</h1>
 </template>
 
-<style scoped>
+<style>
 body {
   font-family: 'Roboto Slab', serif;
   margin: 0;

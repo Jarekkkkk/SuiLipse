@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
 
-
+import { onMounted } from 'vue';
+import { GATEWAYS, chosenGateway, changeClient } from '../sui/gateway'
+const currentClusterWithEmoji = chosenGateway.value + " " + "🤔"
 
 
 </script>
@@ -39,16 +40,15 @@ import { ref, onMounted } from 'vue'
                     </a>
                 </router-link>
             </div>
-            <div id="login">
-                <div class="navbar-item">
-                    <div class="buttons">
-                        <a class="button is-primary">
-                            <strong>Login</strong>
-                        </a>
-                    </div>
+            <div id="login" class="navbar-item has-dropdown is-hoverable">
+                <a class="navbar-link"> {{ currentClusterWithEmoji }} </a>
+
+                <div class="navbar-dropdown is-right">
+                    <a v-for="cluster in GATEWAYS" :key="cluster" :class="{
+                      'has-background-light': cluster === chosenGateway,
+                      'has-text-black': cluster === chosenGateway
+                    }" class="navbar-item" @click="changeClient(cluster)">{{ cluster }}</a>
                 </div>
-
-
             </div>
         </div>
     </nav>
