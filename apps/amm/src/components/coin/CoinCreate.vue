@@ -17,28 +17,28 @@
         <div class="field">
             <label class="label">Package</label>
             <div class="control">
-                <input class="input" type="text" placeholder="Text input">
+                <input class="input" type="text" placeholder="Text input" v-model="package_id">
             </div>
             <p class="help">This is a help text</p>
         </div>
         <div class="field">
             <label class="label">Capability_ID</label>
             <div class="control">
-                <input class="input" type="text" placeholder="Text input">
+                <input class="input" type="text" placeholder="Text input" v-model="capability">
             </div>
             <p class="help">This is a help text</p>
         </div>
         <div class="field">
             <label class="label">Recipient</label>
             <div class="control">
-                <input class="input" type="text" placeholder="Text input">
+                <input class="input" type="text" placeholder="Text input" v-model="recipient">
             </div>
             <p class="help">This is a help text</p>
         </div>
         <div class="field">
             <label class="label">Amount</label>
             <div class="control">
-                <input class="input" type="number" placeholder="Text input">
+                <input class="input" type="number" placeholder="Text input" v-model="amount">
             </div>
             <p class="help">This is a help text</p>
         </div>
@@ -54,25 +54,30 @@
 </template>
 
 
-<script setup lang="ts">import { reactive, ref } from 'vue';
+<script setup lang="ts">
+import { onMounted, onUpdated, ref } from 'vue';
+import { createToken } from '../../sui/coin'
+
+
 const createdTokenAddress = ref("");
 const creatingToken = ref(false);
 const tokenLink = ref("");
 const errorMessage = ref("");
 
-const form = reactive(
-    {
-        capability: "",
-        recipient: "",
-        amount: 0
-    }
-)
+const package_id = ref("")
+const capability = ref("")
+const recipient = ref("")
+const amount = ref(0)
 
-const submit = () => {
-    console.log('submit the coin create form');
-}
 
-const createToken = () => { console.log("create token "); }
+
+
+onUpdated(() => {
+    console.log(package_id.value);
+    console.log(capability.value);
+    console.log(recipient.value);
+    console.log(amount.value);
+})
 </script>
 
 <!-- /// Mint and Transfer Coin with signer holding Capability
@@ -87,7 +92,6 @@ MintAndTransfer {
 
 <style scoped>
 .title {
-    margin-top: 3rem;
     text-align: center;
 }
 

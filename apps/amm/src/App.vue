@@ -1,19 +1,21 @@
 
 <script setup lang="ts">
 import Nav from "@/components/Nav.vue"
+import { onMounted } from "vue";
+import { changeClient, chosenGateway } from "./sui/gateway";
 
-// TODO: onMounted
-// import { onMounted } from "vue";
-// import { changeClient, chosenGateway } from "./sui/gateway"
-// onMounted(() => {
-//   changeClient(chosenGateway.value)
-// }),
-
+onMounted(async () => {
+  try {
+    changeClient(chosenGateway.value)
+  } catch (error) {
+    console.error(error)
+  }
+})
 </script>
 
 <template>
   <Nav />
-  <section>
+  <section class="section">
     <router-view />
   </section>
 </template>

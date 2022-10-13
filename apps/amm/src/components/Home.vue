@@ -54,27 +54,24 @@
 import { SuiObjectInfo } from '@mysten/sui.js';
 import { getOwnerStr } from '../utils/objectUtils'
 import { onMounted, ref } from 'vue';
-import { changeClient, chosenGateway } from '../sui/gateway';
+import { connection, chosenGateway } from '../sui/gateway';
 import Item from './home/Item.vue'
 
 
 let items = ref<SuiObjectInfo[]>([])
 
-
-
 onMounted(async () => {
     try {
-        let rpc = changeClient(chosenGateway.value)
-
-        const objects = await rpc.getObjectsOwnedByAddress(
-            '0x87574ed593f5745b939bf1790501c7d6acc1592a'
-        );
-
-        items.value = objects
+        let rpc = connection.get(chosenGateway.value);
+        if (rpc) {
+            const objects = await rpc.getObjectsOwnedByAddress(
+                '0x87574ed593f5745b939bf1790501c7d6acc1592a'
+            );
+            items.value = objects
+        }
     } catch (error) {
         console.error(error)
     }
-
 })
 </script>
 <style scoped>
