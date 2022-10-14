@@ -1,9 +1,10 @@
-import { SignerWithProvider, Provider, Ed25519Keypair, RawSigner, JsonRpcProvider, Base64DataBuffer, getMoveObjectType } from '@mysten/sui.js'
+import { Ed25519Keypair, RawSigner, Base64DataBuffer, SuiJsonValue } from '@mysten/sui.js'
 import { chosenGateway, connection } from "./gateway"
 
 //take the place of Buffer
 import { Buffer as BufferPolyfill } from 'buffer'
 import { get_obj } from './object';
+import { toNamespacedPath } from 'path';
 declare var Buffer: typeof BufferPolyfill;
 globalThis.Buffer = BufferPolyfill
 
@@ -26,7 +27,7 @@ export const createToken_ = async (cap: string, amount: number, recipient: strin
         let signer = get_account_from_mnemonic()
         let res = await get_obj(cap);
 
-        if (!res) {
+        if (!res || !res.type) {
             throw new Error("create token error")
         }
 
@@ -34,7 +35,10 @@ export const createToken_ = async (cap: string, amount: number, recipient: strin
         //create tx
 
 
-        //depreciated
+
+        //signer: 0x94c21e07df735da5a390cb0aad0b4b1490b0d4f0
+        //cap: 0xffaab2206faa05c078c2b1e1f554bf33c2b28799
+
         const moveCallTxn = await signer.executeMoveCall({
             packageObjectId: SUI_FRAMEWORK,
             module: 'coin',
@@ -43,7 +47,7 @@ export const createToken_ = async (cap: string, amount: number, recipient: strin
             arguments: [
                 cap, amount, recipient,
             ],
-            gasBudget: 10000,
+            gasBudget: 1000,
         });
         console.log('moveCallTxn', moveCallTxn);
 

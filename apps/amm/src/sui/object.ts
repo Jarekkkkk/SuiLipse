@@ -1,5 +1,6 @@
 
-import { SuiObjectInfo, getMoveObjectType, getObjectOwner, ObjectOwner, getObjectType } from '@mysten/sui.js';
+import { SuiObjectInfo, getMoveObjectType, getObjectOwner, ObjectOwner, Coin as CoinAPI, SUI_TYPE_ARG, COIN_TYPE, SuiMoveObject, getObjectExistsResponse, getMoveObject } from '@mysten/sui.js';
+import { BaseTransition } from 'vue';
 import { connection, chosenGateway } from "./gateway";
 
 const EXAMPLE_OBJECT: SuiObjectInfo = {
@@ -24,6 +25,8 @@ export function getOwnerStr(owner: ObjectOwner | string): string {
 }
 
 
+const COIN_TYPE_ARG_REGEX = /^0x2::coin::TreasuryCap<(.+)>$/;
+
 //return (type, digest, inner value)
 export const get_obj = async (id: string) => {
     try {
@@ -32,11 +35,15 @@ export const get_obj = async (id: string) => {
         if (!res) {
             throw new Error("unable to receive response of getObject")
         }
-        let type = getMoveObjectType(res)
+
+        let move_obj = getMoveObject(res);
+
+
         let owner = getObjectOwner(res);
 
-        if (type && owner) {
-            return { id, type: type.slice(23, -1), owner: getOwnerStr(owner) }
+        if (move_obj && owner) {
+            let res = move_obj.type.match(COIN_TYPE_ARG_REGEX);
+            return { id, type: res ? res[1] : null, owner: getOwnerStr(owner) }
         } else {
             throw new Error("")
         }
@@ -44,8 +51,6 @@ export const get_obj = async (id: string) => {
         console.error(error)
     }
 }
-
-
 
 
 
