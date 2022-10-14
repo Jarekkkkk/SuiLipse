@@ -1,4 +1,4 @@
-import { Ed25519Keypair, RawSigner, Base64DataBuffer, SuiJsonValue } from '@mysten/sui.js'
+import { Ed25519Keypair, RawSigner, Base64DataBuffer, SuiJsonValue, getExecutionStatusType } from '@mysten/sui.js'
 import { chosenGateway, connection } from "./gateway"
 
 //take the place of Buffer
@@ -34,12 +34,13 @@ export const createToken_ = async (cap: string, amount: number, recipient: strin
         let rpc = connection.get(chosenGateway.value)
         //create tx
 
-
+        //signer.executeMoveCallWithRequestType
 
         //signer: 0x94c21e07df735da5a390cb0aad0b4b1490b0d4f0
         //cap: 0xffaab2206faa05c078c2b1e1f554bf33c2b28799
 
-        const moveCallTxn = await signer.executeMoveCall({
+        //have to use local::functions
+        const moveCallTxn = await signer.executeMoveCallWithRequestType({
             packageObjectId: SUI_FRAMEWORK,
             module: 'coin',
             function: 'mint_and_transfer',
@@ -48,10 +49,11 @@ export const createToken_ = async (cap: string, amount: number, recipient: strin
                 cap, amount, recipient,
             ],
             gasBudget: 1000,
+            gasPayment: "0x0461a2ee33fe2a26a1e6fc3817b06661bb7ad20b",
         });
         console.log('moveCallTxn', moveCallTxn);
 
-        let created_coin = moveCallTxn.effects.created?.at(1)?.reference.objectId
+        let created_coin = getExecutionStatusType(moveCallTxn)
 
         console.log(created_coin);
 
@@ -67,11 +69,6 @@ const sign_tx = () => {
         new TextEncoder().encode('hello world')
     );
     const signature = keypair.signData(signData);
-
-}
-
-
-const get_account_from_seed = async () => {
 
 }
 
