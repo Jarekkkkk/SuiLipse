@@ -27,7 +27,7 @@
             </div>
         </div>
     </nav>
-    <section>
+    <section class="section">
         <table class="table is-fullwidth">
             <thead>
                 <tr>

@@ -238,7 +238,7 @@ impl CoinScript for CoinClient {
 
         //create tx
 
-        //generic type -- the most desireable way to retrieve the MOVE_TYPE
+        // get the inner type of type
         let coin_type = coin_obj.get_move_template_type()?;
         let type_args = vec![SuiTypeTag::from(coin_type)];
 

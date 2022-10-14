@@ -25,10 +25,16 @@ export function getOwnerStr(owner: ObjectOwner | string): string {
 }
 
 
-const COIN_TYPE_ARG_REGEX = /^0x2::coin::TreasuryCap<(.+)>$/;
+// ref: https://github.com/MystenLabs/sui/blob/87e1314ef61fc39904a612bcf9d96481065f02bb/apps/wallet/src/ui/app/redux/slices/sui-objects/Coin.ts
+const COIN_CAP_TYPE_ARG_REGEX = /^0x2::coin::TreasuryCap<(.+)>$/;
+class Coin extends CoinAPI {
+    public static getCoinCapTypeArg(obj: SuiMoveObject) {
+        const res = obj.type.match(COIN_CAP_TYPE_ARG_REGEX);
+        return res ? res[1] : null;
+    }
+}
 
-//return (type, digest, inner value)
-export const get_obj = async (id: string) => {
+export const get_coin_obj = async (id: string) => {
     try {
         const rpc = connection.get(chosenGateway.value);
         let res = await rpc?.getObject(id);
@@ -37,12 +43,10 @@ export const get_obj = async (id: string) => {
         }
 
         let move_obj = getMoveObject(res);
-
-
         let owner = getObjectOwner(res);
 
         if (move_obj && owner) {
-            let res = move_obj.type.match(COIN_TYPE_ARG_REGEX);
+            let res = Coin.getCoinCapTypeArg(move_obj)
             return { id, type: res ? res[1] : null, owner: getOwnerStr(owner) }
         } else {
             throw new Error("")
