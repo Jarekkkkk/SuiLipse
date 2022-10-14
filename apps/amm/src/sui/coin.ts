@@ -1,27 +1,73 @@
-import { SignerWithProvider, Provider, Ed25519Keypair, RawSigner, JsonRpcProvider } from '@mysten/sui.js'
+import { SignerWithProvider, Provider, Ed25519Keypair, RawSigner, JsonRpcProvider, Base64DataBuffer, getMoveObjectType } from '@mysten/sui.js'
 import { chosenGateway, connection } from "./gateway"
-import { Buffer } from 'buffer'
 
-const TEST_SECRT = "AFYFTnEn3L4LrgZpEfklixXKFuRam5p418WNz6hlnhL+5jihhTKTZcT8drv1InWwCnt/0Id/y7zNZ/IH4OxwsBo=="
-const SUI_TEST = "mdqVWeFekT7pqy5T49+tV12jO0m+ESW7ki4zSU9JiCgbL0kJbj5dvQ/PqcDAzZLZqzshVEs01d1KZdmLh4uZIg=="
+//take the place of Buffer
+import { Buffer as BufferPolyfill } from 'buffer'
+import { get_obj } from './object';
+declare var Buffer: typeof BufferPolyfill;
+globalThis.Buffer = BufferPolyfill
 
-export const createToken = async () => {
+const SUI_FRAMEWORK = "0x2"
+const TEST_MNEMONIC = "sorry neither pioneer despair talk taxi eager library lawsuit surround cycle off";
+
+const get_account_from_mnemonic = () => {
+    let keypair = Ed25519Keypair.deriveKeypair(TEST_MNEMONIC);
+    const signer = new RawSigner(
+        keypair,
+        connection.get(chosenGateway.value)
+    );
+
+    return signer
+}
+
+export const createToken_ = async (cap: string, amount: number, recipient: string) => {
     try {
-        const rpc = connection.get(chosenGateway.value)
-        const secretKey = Buffer.from(TEST_SECRT, 'base64');
-        const keypair = Ed25519Keypair.fromSecretKey(secretKey);
+        //required params
+        let signer = get_account_from_mnemonic()
+        let res = await get_obj(cap);
+
+        if (!res) {
+            throw new Error("create token error")
+        }
+
+        let rpc = connection.get(chosenGateway.value)
+        //create tx
 
 
+        //depreciated
+        const moveCallTxn = await signer.executeMoveCall({
+            packageObjectId: SUI_FRAMEWORK,
+            module: 'coin',
+            function: 'mint_and_transfer',
+            typeArguments: [res.type],
+            arguments: [
+                cap, amount, recipient,
+            ],
+            gasBudget: 10000,
+        });
+        console.log('moveCallTxn', moveCallTxn);
 
+        let created_coin = moveCallTxn.effects.created?.at(1)?.reference.objectId
 
-        console.log(secretKey);
-        // const signer = new RawSigner(
-        //     keypair,
-        //     new JsonRpcProvider('https://gateway.devnet.sui.io:443')
-        // );
-
+        console.log(created_coin);
 
     } catch (error) {
-        console.error(error)
+        console.error(error);
     }
 }
+
+
+const sign_tx = () => {
+    const keypair = new Ed25519Keypair();
+    const signData = new Base64DataBuffer(
+        new TextEncoder().encode('hello world')
+    );
+    const signature = keypair.signData(signData);
+
+}
+
+
+const get_account_from_seed = async () => {
+
+}
+

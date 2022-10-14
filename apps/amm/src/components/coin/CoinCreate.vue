@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUpdated, ref } from 'vue';
-import { createToken } from '../../sui/coin'
+import { createToken_ } from '../../sui/coin'
 
 
 const createdTokenAddress = ref("");
@@ -70,13 +70,17 @@ const recipient = ref("")
 const amount = ref(0)
 
 
+const createToken = async () => {
+    try {
+        await createToken_(capability.value, amount.value, recipient.value)
+    } catch (error) {
+        console.error(error)
+    }
+}
+
 
 
 onUpdated(() => {
-    console.log(package_id.value);
-    console.log(capability.value);
-    console.log(recipient.value);
-    console.log(amount.value);
 })
 </script>
 

@@ -52,11 +52,13 @@
 
 <script setup lang="ts">
 import { SuiObjectInfo } from '@mysten/sui.js';
-import { getOwnerStr } from '../utils/objectUtils'
+import { getOwnerStr } from '../sui/object'
 import { onMounted, ref } from 'vue';
 import { connection, chosenGateway } from '../sui/gateway';
 import Item from './home/Item.vue'
 
+
+const SIGNER = "0x94c21e07df735da5a390cb0aad0b4b1490b0d4f0"
 
 let items = ref<SuiObjectInfo[]>([])
 
@@ -65,7 +67,7 @@ onMounted(async () => {
         let rpc = connection.get(chosenGateway.value);
         if (rpc) {
             const objects = await rpc.getObjectsOwnedByAddress(
-                '0x87574ed593f5745b939bf1790501c7d6acc1592a'
+                SIGNER
             );
             items.value = objects
         }
