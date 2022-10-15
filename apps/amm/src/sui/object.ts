@@ -2,6 +2,7 @@
 import { SuiObjectInfo, getMoveObjectType, getObjectOwner, ObjectOwner, Coin as CoinAPI, SUI_TYPE_ARG, COIN_TYPE, SuiMoveObject, getObjectExistsResponse, getMoveObject } from '@mysten/sui.js';
 import { BaseTransition } from 'vue';
 import { connection, chosenGateway } from "./gateway";
+import { Coin } from '../sui/coin'
 
 const EXAMPLE_OBJECT: SuiObjectInfo = {
     objectId: '8dc6a6f70564e29a01c7293a9c03818fda2d049f',
@@ -14,7 +15,6 @@ const EXAMPLE_OBJECT: SuiObjectInfo = {
     previousTransaction: '4RJfkN9SgLYdb0LqxBHh6lfRPicQ8FLJgzi9w2COcTo=',
 };
 
-
 export function getOwnerStr(owner: ObjectOwner | string): string {
     if (typeof owner === 'object') {
         if ('AddressOwner' in owner) return owner.AddressOwner;
@@ -25,14 +25,6 @@ export function getOwnerStr(owner: ObjectOwner | string): string {
 }
 
 
-// ref: https://github.com/MystenLabs/sui/blob/87e1314ef61fc39904a612bcf9d96481065f02bb/apps/wallet/src/ui/app/redux/slices/sui-objects/Coin.ts
-const COIN_CAP_TYPE_ARG_REGEX = /^0x2::coin::TreasuryCap<(.+)>$/;
-export class Coin extends CoinAPI {
-    public static getCoinCapTypeArg(obj: SuiMoveObject) {
-        const res = obj.type.match(COIN_CAP_TYPE_ARG_REGEX);
-        return res ? res[1] : null;
-    }
-}
 
 export const get_coin_obj = async (id: string) => {
     try {

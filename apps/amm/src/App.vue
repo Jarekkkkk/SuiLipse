@@ -23,6 +23,9 @@ onMounted(async () => {
 <style>
 body {
   font-family: 'Roboto Slab', serif;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
   margin: 0;
   padding: 0;
 }

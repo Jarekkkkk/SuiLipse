@@ -4,26 +4,14 @@
     <nav class="level">
         <div class="level-item has-text-centered">
             <div>
-                <p class="heading">Tweets</p>
-                <p class="title">3,456</p>
+                <p class="heading">Account</p>
+                <p class="title">0x94c21e07df735da5a390cb0aad0b4b1490b0d4f0</p>
             </div>
         </div>
         <div class="level-item has-text-centered">
             <div>
-                <p class="heading">Following</p>
-                <p class="title">sfsd</p>
-            </div>
-        </div>
-        <div class="level-item has-text-centered">
-            <div>
-                <p class="heading">Followers</p>
-                <p class="title">456K</p>
-            </div>
-        </div>
-        <div class="level-item has-text-centered">
-            <div>
-                <p class="heading">Likes</p>
-                <p class="title">789</p>
+                <p class="heading">Objects</p>
+                <p class="title">{{object_amount}}</p>
             </div>
         </div>
     </nav>
@@ -61,6 +49,7 @@ import Item from './home/Item.vue'
 const SIGNER = "0x94c21e07df735da5a390cb0aad0b4b1490b0d4f0"
 
 let items = ref<SuiObjectInfo[]>([])
+let object_amount = ref(0)
 
 onMounted(async () => {
     try {
@@ -68,14 +57,17 @@ onMounted(async () => {
         if (rpc) {
             const objects = await rpc.getObjectsOwnedByAddress(
                 SIGNER
-            );
+            );//SuiObject
             items.value = objects
+            object_amount.value = objects.length
+            console.log(objects);
         }
     } catch (error) {
         console.error(error)
     }
 })
 </script>
+
 <style scoped>
 section {
     max-width: 1200px;

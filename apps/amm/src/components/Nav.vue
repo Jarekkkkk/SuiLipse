@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { GATEWAYS, Gateway, chosenGateway, changeClient } from '../sui/gateway'
+import { GATEWAYS, chosenGateway, changeClient } from '../sui/gateway'
 const currentClusterWithEmoji = computed(() => {
     let emoji
     let gateway

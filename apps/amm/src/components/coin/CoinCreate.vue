@@ -55,8 +55,8 @@
 
 
 <script setup lang="ts">
-import { onMounted, onUpdated, ref } from 'vue';
-import { createToken_ } from '../../sui/coin'
+import { ref } from 'vue';
+import { createToken_ } from '../../sui/coin_tx'
 
 
 const createdTokenAddress = ref("");
@@ -69,19 +69,17 @@ const capability = ref("")
 const recipient = ref("")
 const amount = ref(0)
 
-
 const createToken = async () => {
     try {
         await createToken_(capability.value, amount.value, recipient.value)
+        package_id.value = "";
+        capability.value = "";
+        amount.value = 0
     } catch (error) {
         console.error(error)
     }
 }
 
-
-
-onUpdated(() => {
-})
 </script>
 
 <!-- /// Mint and Transfer Coin with signer holding Capability
