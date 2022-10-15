@@ -27,7 +27,7 @@ export function getOwnerStr(owner: ObjectOwner | string): string {
 
 // ref: https://github.com/MystenLabs/sui/blob/87e1314ef61fc39904a612bcf9d96481065f02bb/apps/wallet/src/ui/app/redux/slices/sui-objects/Coin.ts
 const COIN_CAP_TYPE_ARG_REGEX = /^0x2::coin::TreasuryCap<(.+)>$/;
-class Coin extends CoinAPI {
+export class Coin extends CoinAPI {
     public static getCoinCapTypeArg(obj: SuiMoveObject) {
         const res = obj.type.match(COIN_CAP_TYPE_ARG_REGEX);
         return res ? res[1] : null;

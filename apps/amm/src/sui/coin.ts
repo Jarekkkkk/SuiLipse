@@ -1,4 +1,4 @@
-import { Ed25519Keypair, RawSigner, Base64DataBuffer, SuiJsonValue, getExecutionStatusType } from '@mysten/sui.js'
+import { Ed25519Keypair, RawSigner, Base64DataBuffer, SuiJsonValue, getExecutionStatusType, getMoveObject } from '@mysten/sui.js'
 import { chosenGateway, connection } from "./gateway"
 
 //take the place of Buffer
@@ -23,14 +23,21 @@ const get_account_from_mnemonic = () => {
 export const createToken_ = async (cap: string, amount: number, recipient: string) => {
     try {
         //required params
-        let rpc = connection.get(chosenGateway.value)
         let signer = get_account_from_mnemonic()
-        let res = await get_coin_obj(cap);
 
-        if (!res || !res.type || !rpc) {
-            throw new Error("create token error")
+        let rpc = connection.get(chosenGateway.value)
+        if (!rpc) {
+            throw new Error("fail to get rpc")
         }
+        let res = await rpc.getObject(cap);
+        let move_obj = getMoveObject(res);
+        if (!move_obj) {
+            throw new Error("fail to get move obj")
+        }
+
         //create tx
+
+        let coin_type = Coin.getCoinCapTypeArg(move_obj)
 
         //signer.executeMoveCallWithRequestType
 
@@ -46,7 +53,7 @@ export const createToken_ = async (cap: string, amount: number, recipient: strin
             packageObjectId: SUI_FRAMEWORK,
             module: 'coin',
             function: 'mint_and_transfer',
-            typeArguments: [res.type],
+            typeArguments: [coin_type ?? ""],
             arguments: [
                 cap, amount, recipient,
             ],
@@ -65,7 +72,7 @@ export const createToken_ = async (cap: string, amount: number, recipient: strin
 }
 
 // Pending: amount should become argument
-export const transfer_coin = async (coin: string, recipient: string) => {
+export const transfer_coin_ = async (coin: string, recipient: string) => {
     try {
         let signer = get_account_from_mnemonic()
         let rpc = connection.get(chosenGateway.value)
@@ -77,8 +84,8 @@ export const transfer_coin = async (coin: string, recipient: string) => {
             await signer.getAddress()
         );
 
-        let coin_obj = await rpc.getObject(coin);
-        let coin_type = Coin.getCoinTypeArg(coin_obj)
+        let res = await rpc.getObject(coin);
+        let coin_type = Coin.getCoinTypeArg(res)
         const moveCallTxn = await signer.transferObjectWithRequestType({
             objectId: coin,
             gasBudget: 1000,
@@ -94,7 +101,35 @@ export const transfer_coin = async (coin: string, recipient: string) => {
         console.error(error)
     }
 }
+const join_ = async (coin_a: string, coin_b: string) => {
+    try {
+        let signer = get_account_from_mnemonic()
+        let rpc = connection.get(chosenGateway.value)
+        if (!rpc) {
+            throw new Error("fail to get rpc")
+        }
 
+        const gas_payments = await rpc.getGasObjectsOwnedByAddress(
+            await signer.getAddress()
+        );
+        let res_a = await rpc.getObject(coin_a);
+        let coin_a_type = Coin.getCoinTypeArg(res_a)
+
+        const merge_coin_tx = await signer.mergeCoinWithRequestType({
+            primaryCoin: coin_a,
+            coinToMerge: coin_b,
+            gasBudget: 1000,
+            gasPayment: gas_payments[0].objectId,
+        });
+
+
+        let status = getExecutionStatusType(merge_coin_tx)
+
+        console.log(status);
+    } catch (error) {
+        console.error(error)
+    }
+}
 
 const sign_tx = () => {
     const keypair = new Ed25519Keypair();
