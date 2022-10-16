@@ -61,7 +61,7 @@ onMounted(async () => {
 })
 </script>
 
-<style>
+<style scoped>
 .cards-container {
     display: flex;
     align-items: center;

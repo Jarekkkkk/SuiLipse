@@ -14,8 +14,12 @@ export const EXAMPLE_COIN_OBJECT: SuiObjectInfo = {
     version:
         3
 };
+
+
 // ref: https://github.com/MystenLabs/sui/blob/87e1314ef61fc39904a612bcf9d96481065f02bb/apps/wallet/src/ui/app/redux/slices/sui-objects/Coin.ts
-const COIN_CAP_TYPE_ARG_REGEX = /^0x2::coin::TreasuryCap<(.+)>$/;
+export const COIN_TYPE = '0x2::coin::Coin';
+export const COIN_TYPE_ARG_REGEX = /^0x2::coin::Coin<(.+)>$/;
+export const COIN_CAP_TYPE_ARG_REGEX = /^0x2::coin::TreasuryCap<(.+)>$/;
 export class Coin extends CoinAPI {
     public static getCoinCapTypeArg(obj: SuiMoveObject) {
         const res = obj.type.match(COIN_CAP_TYPE_ARG_REGEX);

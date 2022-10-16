@@ -4,37 +4,48 @@
             <img src="../assets/vite.svg" alt={{idx}}>
         </div>
         <div class="info">
-            <span class="number">{{objectId}}</span>
-            <h3 class="type">{{type}}</h3>
-            <small class="value">Value: <span>{{value}}</span></small>
+            <div class="tooltip" @mouseover="toggle_hover" @mouseleave="reset_hover" style="position: relative">
+                <span class="tip-text" :class="hover_class">{{objectId}}</span>
+                <span class="number">{{slice_str(objectId)}}</span>
+            </div>
+            <div>
+                <h3 class="type">{{type.length > 15 ? slice_str(type):type}}</h3>
+                <small class="value">Value: <span>{{value}}</span></small>
+            </div>
         </div>
     </div>
 </template>
 
 
-
-<script setup lang="ts">import { computed } from 'vue';
-
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { COIN_TYPE_ARG_REGEX } from '../sui/coin'
 
 const props = defineProps<{
     idx: number,
     objectId: string,
     type: string,
-    value: number,
+    value: string,
 }>();
 
-const foo = computed(() => {
-    let str = props.objectId
-    console.log(str);
-    let left = str.substring(0, 4)
-    let right = str.substring(str.length - 2)
+let hover_class = ref("")
+const toggle_hover = () => hover_class.value = "hovered"
+const reset_hover = () => hover_class.value = ""
 
-    return left + "..." + right
+const slice_str = (str: string) => {
+    return str.substring(0, 5) + "..." + str.substring(str.length - 3)
+}
+
+
+const type = computed(() => {
+    let s = props.type.match(COIN_TYPE_ARG_REGEX)
+    return s ? s[1] : null
 })
+
 
 </script>
 
-<style>
+<style scoped>
 .card {
     background-color: rgb(208, 234, 255);
     border-radius: 10px;
@@ -42,6 +53,9 @@ const foo = computed(() => {
     margin: 10px;
     padding: 20px;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .card .img-container {
@@ -74,5 +88,35 @@ const foo = computed(() => {
 .card .info .name {
     margin: 15px 0 7px;
     letter-spacing: 1px;
+}
+
+
+.tip-text {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    background-color: rgb(129, 201, 255);
+    color: #fff;
+    white-space: nowrap;
+    border-radius: 7px;
+    visibility: hidden;
+    padding: 0 10px;
+}
+
+.tip-text::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border: 10px solid;
+    border-color: rgb(129, 201, 255) #0000 #0000 #0000
+}
+
+.hovered {
+    top: -130%;
+    visibility: visible;
+    opacity: 1;
 }
 </style>
