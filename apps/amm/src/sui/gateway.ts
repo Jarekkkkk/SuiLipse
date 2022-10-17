@@ -36,7 +36,5 @@ const create_connection = (network: Gateway | string) => {
 export const chosenGateway = ref<Gateway | string>(GATEWAYS[Gateway.devent]);//questions: what's precise type
 export const changeClient = (network: Gateway | string) => {
   create_connection(network)
-
   chosenGateway.value = network
-
 }

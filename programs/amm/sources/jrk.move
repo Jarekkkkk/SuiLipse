@@ -12,7 +12,7 @@ module sui_lipse::jrk{
     /// cap is sent to the publisher, who then controls minting and burning
     fun init(witness: JRK, ctx: &mut TxContext) {
         transfer::transfer(
-            coin::create_currency(witness, ctx),
+            coin::create_currency(witness, 10, ctx),
             tx_context::sender(ctx)
         )
     }

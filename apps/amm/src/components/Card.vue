@@ -1,7 +1,7 @@
 <template >
     <div class="card">
         <div class="img-container">
-            <img src="../assets/vite.svg" alt={{idx}}>
+            <img :src="img_src" alt={{idx}} class="avatar">
         </div>
         <div class="info">
             <div class="tooltip" @mouseover="toggle_hover" @mouseleave="reset_hover" style="position: relative">
@@ -18,7 +18,7 @@
 
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { COIN_TYPE_ARG_REGEX } from '../sui/coin'
 
 const props = defineProps<{
@@ -28,20 +28,38 @@ const props = defineProps<{
     value: string,
 }>();
 
+//hover effect
 let hover_class = ref("")
 const toggle_hover = () => hover_class.value = "hovered"
 const reset_hover = () => hover_class.value = ""
 
+//text visibility
 const slice_str = (str: string) => {
     return str.substring(0, 5) + "..." + str.substring(str.length - 3)
 }
-
-
 const type = computed(() => {
     let s = props.type.match(COIN_TYPE_ARG_REGEX)
     return s ? s[1] : null
 })
 
+//read img file
+const images = {
+    SUI: "../src/assets/sui.svg",
+    JRK: "https://arweave.net/Ys5-KyxJYjywCNeEwj0n0Q3ZxF4mgoAGcmawO76qbuM",
+}
+type Images = 'SUI' | 'JRK';
+const img_src = ref("")
+const get_img = (type: string) => {
+    let img = type.substring(type.length - 3);
+    console.log(img);
+    img_src.value = images[img as Images]
+}
+
+onMounted(() => {
+    if (type.value) {
+        get_img(type.value)
+    }
+})
 
 </script>
 
@@ -58,8 +76,13 @@ const type = computed(() => {
     align-items: center;
 }
 
+.avatar {
+    vertical-align: middle;
+    border-radius: 50%;
+    background-color: #fff;
+}
+
 .card .img-container {
-    background-color: rgb(255, 241, 223);
     border-radius: 50%;
     width: 120px;
     height: 120px;
@@ -69,7 +92,7 @@ const type = computed(() => {
     justify-content: center
 }
 
-.card .img-container img {
+.card .img-container {
     max-width: 90%;
     margin-top: 20px;
 }

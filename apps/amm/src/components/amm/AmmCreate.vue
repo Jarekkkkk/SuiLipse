@@ -50,6 +50,7 @@ const getCoins = async () => {
             throw new Error("fail to get rpc")
         }
         let coin_objects = await rpc.getObjectsOwnedByAddress(SIGNER).then(data => data.filter(o => o.type.startsWith(COIN_TYPE)));
+        console.log(coin_objects);
         coin_objs.value = coin_objects ?? null
     } catch (error) {
         console.error(error)
