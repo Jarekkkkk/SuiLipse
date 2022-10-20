@@ -355,7 +355,7 @@ module sui_lipse::amm_test{
     use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
     use sui_lipse::amm::{Self, Pool, LP_TOKEN, PoolCapability};
     use sui_lipse::amm_math;
-    use std::debug;
+    //use std::debug;
 
     struct TOKEN_X {} // token_x
     struct TOKEN_Y {} //token_y
@@ -385,7 +385,7 @@ module sui_lipse::amm_test{
      #[test] fun test_swap_token_y() {
         let scenario = test::begin(&@0x1);
         test_swap_token_y_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
-    }
+}
      #[test] fun test_add_liquidity() {
         let scenario = test::begin(&@0x1);
         add_liquidity_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
@@ -448,8 +448,6 @@ module sui_lipse::amm_test{
 
             let left = burn(token_y);
             let right = amm_math::get_output(5000, token_x_amt, token_y_amt, FEE, FEE_SCALING);
-            debug::print(&left);
-            debug::print(&right);
 
             assert!( left == right , 0);
 

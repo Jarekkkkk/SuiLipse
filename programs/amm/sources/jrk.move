@@ -8,6 +8,8 @@ module sui_lipse::jrk{
     /// Make sure that the name of the type matches the module's name.
     struct JRK has drop {}
 
+
+
     /// Module initializer is called once on module publish. A treasury
     /// cap is sent to the publisher, who then controls minting and burning
     fun init(witness: JRK, ctx: &mut TxContext) {
@@ -16,11 +18,4 @@ module sui_lipse::jrk{
             tx_context::sender(ctx)
         )
     }
-
-    //entry fun transfer(coin:coin::Coin<JRK>, recipient:address){
-    //    transfer::transfer(
-    //        coin,
-    //        recipient
-    //    )
-    //}
 }
