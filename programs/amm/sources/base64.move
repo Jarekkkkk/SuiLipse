@@ -18,6 +18,7 @@ module sui_lipse::test{
     const BASE16_CHARS: vector<u8> = b"0123456789abcdef";
     const BASE64_CHARS: vector<u8> = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     const PADDING: u8 = 0x3d;
+
     const DECODE_LUT: vector<u8> = vector<u8>[
      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -35,8 +36,25 @@ module sui_lipse::test{
      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
      255, 255, 255, 255
      ];
+     const DECODE_LUT_64: vector<u8> = vector<u8>[
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 62/*43*/, 255, 255, 255, 63/*47*/, 52/*48*/, 53, 54, 55, 56, 57,
+     58, 59,  60, 61/*57*/, 255, 255, 255, 255, 255, 255, 255, 0/*65*/, 1, 2, 3, 4, 5, 6,
+     7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+     25/*90*/, 255, 255, 255, 255, 255, 255, 26/*97*/, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+     37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51/*122*/, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+     255, 255, 255, 255
+     ];
 
-     public fun encode(bytes: vector<u8>): vector<u8> {
+    public fun encode(bytes: vector<u8>): vector<u8> {
          let retval = vector::empty<u8>();
          let n = vector::length(&bytes);
          let i = 0u64;
@@ -95,30 +113,31 @@ module sui_lipse::test{
         return retval
     }
 
-    public fun decode_64(bytes: vector<u8>):vector<u8>{
-         if (vector::length(&bytes) == 0){
+    public fun decode_64(bytes: vector<u8>): vector<u8>{
+        if (vector::length(&bytes) == 0){
             return b""
         };
-         let retval = vector::empty<u8>();
-         let n = vector::length(&bytes);
-         assert!(n % 4 == 0, ELAYERZERO_INVALID_LENGTH);
+        let retval = vector::empty<u8>();
+        let n = vector::length(&bytes);
+        assert!(n % 4 == 0, ELAYERZERO_INVALID_LENGTH);
 
-         if(vector::borrow(&bytes, n - 1) == &PADDING){
+        if(vector::borrow(&bytes, n - 1) == &PADDING){
             n = n - 1;
             if(vector::borrow(&bytes, n - 1) == &PADDING){
                 n = n - 1;
             }
-         };
+        };
+        print(&n);
         let i = 0u64;
         while(i + 4 <= n){
             let s1 = vector::borrow(&bytes, i);
             let s2 = vector::borrow(&bytes, i + 1);
             let s3 = vector::borrow(&bytes, i + 2);
             let s4 = vector::borrow(&bytes, i + 3);
-            let r1 = vector::borrow(&BASE64_CHARS, ((*s1) as u64));
-            let r2 = vector::borrow(&BASE64_CHARS, ((*s2) as u64));
-            let r3 = vector::borrow(&BASE64_CHARS, ((*s3) as u64));
-            let r4 = vector::borrow(&BASE64_CHARS, ((*s4) as u64));
+            let r1 = vector::borrow(&DECODE_LUT_64, ((*s1) as u64));
+            let r2 = vector::borrow(&DECODE_LUT_64, ((*s2) as u64));
+            let r3 = vector::borrow(&DECODE_LUT_64, ((*s3) as u64));
+            let r4 = vector::borrow(&DECODE_LUT_64, ((*s4) as u64));
 
             print(r1);
             print(r2);
@@ -131,7 +150,7 @@ module sui_lipse::test{
         return retval
     }
 
-     public fun decode(bytes: vector<u8>): vector<u8> {
+    public fun decode(bytes: vector<u8>): vector<u8> {
          let retval = vector::empty<u8>();
          let n = vector::length(&bytes);
          assert!(n & 1 == 0, ELAYERZERO_INVALID_LENGTH);
@@ -147,12 +166,11 @@ module sui_lipse::test{
              i = i + 2;
          };
          return retval
-     }
+    }
 
     #[test] fun test_64(){
         let hex = b"abcde";// [48, 48, 48, 48]
         let e = encode_64(hex);
-        print(&e);
         decode_64(e);
     }
 
@@ -168,3 +186,5 @@ module sui_lipse::test{
         vector::push_back(&mut retval, *c2);
     }
 }
+
+// [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 0, 0, 0, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 0, 0, 0, 0, 0, 0, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 0, 0, 0, 0, 0]
