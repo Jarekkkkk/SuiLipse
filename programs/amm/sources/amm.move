@@ -371,42 +371,48 @@ module sui_lipse::amm_test{
     const FEE: u64 = 3;
 
     #[test] fun test_init_pool(){
-        let scenario = test::begin(&@0x1);
+        let scenario = test::begin(@0x1);
         test_init_pool_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
+        test::end(scenario);
     }
     #[test] fun test_init_sui_pool(){
-        let scenario = test::begin(&@0x2);
+        let scenario = test::begin(@0x2);
         test_init_pool_<JAREK, TOKEN_X, TOKEN_Y>(TOKEN_X_AMT, TOKEN_Y_AMT, &mut scenario);
+        test::end(scenario);
     }
      #[test] fun test_swap_sui() {
-        let scenario = test::begin(&@0x1);
+        let scenario = test::begin(@0x1);
         test_swap_sui_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
+        test::end(scenario);
     }
      #[test] fun test_swap_token_y() {
-        let scenario = test::begin(&@0x1);
+        let scenario = test::begin(@0x1);
         test_swap_token_y_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
+        test::end(scenario);
 }
      #[test] fun test_add_liquidity() {
-        let scenario = test::begin(&@0x1);
+        let scenario = test::begin(@0x1);
         add_liquidity_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
+        test::end(scenario);
     }
     #[test] fun test_remove_liquidity() {
-        let scenario = test::begin(&@0x1);
+        let scenario = test::begin(@0x1);
         remove_liquidity_<JAREK, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
+        test::end(scenario);
     }
 
     fun test_init_pool_<V, X, Y>(token_x_amt: u64, token_y_amt: u64, test:&mut Scenario) {
         let ( lp, _) = people();
 
         //init the module
-        next_tx(test, &lp);{
+        next_tx(test, lp);{
             amm::init_for_testing(ctx(test));
             amm::create_capability(JAREK{}, ctx(test));
         };
 
         //create pool
-        next_tx(test, &lp); {
-            let cap = test::take_owned<PoolCapability<V>>(test);
+        next_tx(test, lp); {
+            let cap = test::take_from_sender<PoolCapability<V>>(test);
             let lsp = amm::create_pool_(
                 &cap,
                 mint<X>(token_x_amt, ctx(test)),
@@ -418,20 +424,20 @@ module sui_lipse::amm_test{
             );
 
             assert!(burn(lsp) == amm_math::get_l(token_x_amt, token_y_amt), 0);
-            test::return_owned<PoolCapability<V>>(test, cap);
+            test::return_to_sender<PoolCapability<V>>(test, cap);
         };
 
         //shared_pool
-        next_tx(test, &lp);{
+        next_tx(test, lp);{
             let pool = test::take_shared<Pool<V, X, Y>>(test);
-            let shared_pool = test::borrow_mut(&mut pool); // shared_obj could only be mutably borrowed
-            let (sui_r, token_y_r, lp_s) = amm::get_reserves<V, X, Y>(shared_pool);
+            //let shared_pool = test::borrow_mut(&mut pool); // shared_obj could only be mutably borrowed
+            let (sui_r, token_y_r, lp_s) = amm::get_reserves<V, X, Y>(&mut pool);
 
             assert!(sui_r == token_x_amt,0);
             assert!(token_y_r == token_y_amt,0);
             assert!(lp_s == amm_math::get_l(token_x_amt, token_y_amt),0);
 
-            test::return_shared(test, pool);
+            test::return_shared(pool);
         };
      }
 
@@ -440,18 +446,18 @@ module sui_lipse::amm_test{
 
          test_init_pool_<V, X, Y>(token_x_amt, token_y_amt, test);
 
-        next_tx(test, &trader);{
+        next_tx(test, trader);{
             let pool = test::take_shared<Pool<V, X, Y>>(test);
-            let shared_pool = test::borrow_mut(&mut pool);
+            //let shared_pool = test::borrow_mut(&mut pool);
 
-            let token_y = amm::swap_token_x<V, X, Y>(shared_pool, mint<X>(5000, ctx(test)), ctx(test));
+            let token_y = amm::swap_token_x<V, X, Y>(&mut pool, mint<X>(5000, ctx(test)), ctx(test));
 
             let left = burn(token_y);
             let right = amm_math::get_output(5000, token_x_amt, token_y_amt, FEE, FEE_SCALING);
 
             assert!( left == right , 0);
 
-            test::return_shared(test, pool);
+            test::return_shared(pool);
         }
     }
 
@@ -460,15 +466,15 @@ module sui_lipse::amm_test{
 
         test_init_pool_<V, X, Y>(token_x_amt, token_y_amt, test);
 
-        next_tx(test, &trader);{
+        next_tx(test, trader);{
             let pool = test::take_shared<Pool<V, X, Y>>(test);
-            let shared_pool = test::borrow_mut(&mut pool);
+            //let shared_pool = test::borrow_mut(&mut pool);
 
-            let output_sui = amm::swap_token_y<V, X, Y>(shared_pool, mint<Y>(5000000, ctx(test)), ctx(test));
+            let output_sui = amm::swap_token_y<V, X, Y>(&mut pool, mint<Y>(5000000, ctx(test)), ctx(test));
 
             assert!(burn(output_sui) == 4973,0);
 
-            test::return_shared(test, pool);
+            test::return_shared(pool);
         }
     }
 
@@ -477,15 +483,15 @@ module sui_lipse::amm_test{
 
         test_init_pool_<V, X, Y>(token_x_amt, token_y_amt, test);
 
-        next_tx(test, &trader);{
+        next_tx(test, trader);{
             let pool = test::take_shared<Pool<V, X, Y>>(test);
-            let shared_pool = test::borrow_mut(&mut pool);
+            //let shared_pool = test::borrow_mut(&mut pool);
 
-            let output_lp = amm::add_liquidity_(shared_pool,  mint<X>(50, ctx(test)), mint<Y>(50000, ctx(test)), 50, 50000, ctx(test));
+            let output_lp = amm::add_liquidity_(&mut pool,  mint<X>(50, ctx(test)), mint<Y>(50000, ctx(test)), 50, 50000, ctx(test));
 
             assert!(burn(output_lp)==1581, 0);
 
-            test::return_shared(test, pool);
+            test::return_shared(pool);
         }
     }
 
@@ -494,20 +500,20 @@ module sui_lipse::amm_test{
 
         test_swap_sui_<V, X, Y>(token_x_amt, token_y_amt, test);//Pool ( SUI_AMT + 5000, 1000000000 - 4973639)
 
-        next_tx(test, &owner);{
+        next_tx(test, owner);{
             let pool = test::take_shared<Pool<V, X, Y>>(test);
-            let shared_pool = test::borrow_mut(&mut pool);
+            //let shared_pool = test::borrow_mut(&mut pool);
             // (X, Y) = (5000000, 995026361)
-            let (x, y, lp) = amm::get_reserves(shared_pool);
+            let (x, y, lp) = amm::get_reserves(&mut pool);
             let lp_token = mint<LP_TOKEN<V, X, Y>>(lp, ctx(test));
             //expected
 
             let (sui_withdraw, token_y_withdraw) = amm_math::withdraw_liquidity(x, y, coin::value(&lp_token),lp);
 
-            let (withdraw_sui, withdraw_token_y) = amm::remove_liquidity_(shared_pool, lp_token, sui_withdraw, token_y_withdraw, ctx(test));
+            let (withdraw_sui, withdraw_token_y) = amm::remove_liquidity_(&mut pool, lp_token, sui_withdraw, token_y_withdraw, ctx(test));
 
             //after withdraw
-            let (sui, token_y, lp_supply) = amm::get_reserves(shared_pool);
+            let (sui, token_y, lp_supply) = amm::get_reserves(&mut pool);
 
             assert!(sui == 0,0);
             assert!(token_y== 0, 0);
@@ -515,7 +521,7 @@ module sui_lipse::amm_test{
             assert!(burn(withdraw_sui) == sui_withdraw, 0);
             assert!(burn(withdraw_token_y) == token_y_withdraw, 0);
 
-            test::return_shared(test, pool);
+            test::return_shared(pool);
         }
     }
     //utilities

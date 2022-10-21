@@ -197,7 +197,7 @@ public fun test(){
         let admin = @0x1111;
         //let buyer = @0x2222;
 
-        let scenario = &mut test_scenario::begin(&admin);
+        let scenario = test_scenario::begin(admin);
 
         let name = b"Card";
         let url =  b"https://arweave.net/p01LagSqYNVB8eix4UJ3lf1CCYbKKxFgV2XMW4hUMTQ";
@@ -207,12 +207,12 @@ public fun test(){
         let _res = b"data:image/svg+xml;base64,amFyZWs=";
 
         {
-            mint_nft(name, desc, url, test_scenario::ctx(scenario));
+            mint_nft(name, desc, url, test_scenario::ctx(&mut scenario));
         };
 
-        test_scenario::next_tx(scenario, &admin);
+        test_scenario::next_tx(&mut scenario, admin);
         {
-            let nft = test_scenario::take_owned<Card>(scenario);
+            let nft = test_scenario::take_from_sender<Card>(&mut scenario);
 
             let foo = name(&nft);
             let bar = description(&nft);
@@ -223,8 +223,10 @@ public fun test(){
             assert!(baz == &url::new_unsafe(ascii::string(url)),1);
 
 
-            test_scenario::return_owned<Card>(scenario, nft);
+            test_scenario::return_to_sender<Card>(&mut scenario, nft);
         };
+
+        test_scenario::end(scenario);
 }
 }
 
