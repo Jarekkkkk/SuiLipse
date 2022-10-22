@@ -93,10 +93,6 @@ module sui_lipse::test{
             let c2 = vector::borrow(&BASE64_CHARS, ((((*v1 & 0x03) << 4) | (*v2 >> 4)) as u64));
             let c3 = vector::borrow(&BASE64_CHARS, ((((*v2 & 0x0f) << 2) | ((*v3 & 0xc0) >> 6 )) as u64));
             let c4 = vector::borrow(&BASE64_CHARS, ((*v3 & 0x3f) as u64));
-            print(&(*v1 >> 2));
-            print(&(((*v1 & 0x03) << 4) | (*v2 >> 4)));
-            print(&(((*v2 & 0x0f) << 2) | ((*v3 & 0xc0) >> 6 )));
-            print(&((*v3 & 0x3f)));
             vector::push_back(&mut retval, *c1);
             vector::push_back(&mut retval, *c2);
             vector::push_back(&mut retval, *c3);
@@ -105,7 +101,7 @@ module sui_lipse::test{
         };
 
         let mod = n % 3;
-        if (mod == 1){//when 1 item is remained
+        if (mod == 1){ // when 1 item is remained
             let v1 = vector::borrow(&bytes, i);
             let c1 = vector::borrow(&BASE64_CHARS, ((*v1 >> 2) as u64));
             let c2 = vector::borrow(&BASE64_CHARS, (((*v1 & 0x03) << 4 ) as u64));
@@ -113,7 +109,7 @@ module sui_lipse::test{
             vector::push_back(&mut retval, *c2);
             vector::push_back(&mut retval, PADDING);
             vector::push_back(&mut retval, PADDING);
-        }else if(mod == 2){//when 2 items are remained
+        }else if(mod == 2){ // when 2 items are remained
             let v1 = vector::borrow(&bytes, i);
             let v2 = vector::borrow(&bytes, i + 1);
             let c1 = vector::borrow(&BASE64_CHARS, ((*v1 >> 2) as u64));
@@ -131,7 +127,6 @@ module sui_lipse::test{
         if (vector::length(&bytes) == 0){
             return b""
         };
-        print(&bytes);
         let retval = vector::empty<u8>();
         let n = vector::length(&bytes);
         assert!(n % 4 == 0, ELAYERZERO_INVALID_LENGTH);
@@ -155,26 +150,33 @@ module sui_lipse::test{
             let v1 = (((*r1 << 2) | ((*r2 >> 4))) as u8);
             let v2 = ((*r2 << 4) | (*r3 >> 2) as u8);
             let v3 = (((*r3 << 6) | *r4) as u8);
-            print(&v1);
-            print(&v2);
-            print(&v3);
-            // let r1 = vector::borrow(&BASE64_CHARS, (((*s1 << 2) | ((*s2 >> 4))) as u64));
-            // let r2 = vector::borrow(&BASE64_CHARS, (((*s2 & 0x0f) << 4) | (*s3 >> 2) as u64));
-            // let r3 = vector::borrow(&BASE64_CHARS, (((*s3 << 6) | *s4) as u64));
-
-
-            // print(&(((*s1 << 2) | ((*s2 >> 4))) as u64));// 30
-            // print(&(((*s2 & 0x0f) << 4) | (*s3 >> 2) as u64));// 43
-            // print(&(((*s3 << 6) | *s4) as u64));// 255
+            vector::push_back(&mut retval, v1);
+            vector::push_back(&mut retval, v2);
+            vector::push_back(&mut retval, v3);
 
             i = i + 4;
         };
         let mod = n - i ;
-        assert!(mod == 1, ELAYERZERO_INVALID_LENGTH);
+        assert!(mod != 1, ELAYERZERO_INVALID_LENGTH);
         if(mod == 3){//when decoded bytes are composed of 2 items
+            let s1 = vector::borrow(&bytes, i);
+            let s2 = vector::borrow(&bytes, i + 1 );
+            let s3 = vector::borrow(&bytes, i + 2 );
+            let r1 = vector::borrow(&DECODE_LUT_64, (*s1 as u64));
+            let r2 = vector::borrow(&DECODE_LUT_64, (*s2 as u64));
+            let r3 = vector::borrow(&DECODE_LUT_64, (*s3 as u64));
+            let v1 = ( ((*r1 << 2) | (*r2 >> 4) )  as u8);
+            let v2 = (((*r2 << 4) | (*r3 >> 2)) as u8);
+            vector::push_back(&mut retval, v1);
+            vector::push_back(&mut retval, v2);
 
         }else if (mod == 2){//when decoded bytes are composed of single items
-
+            let s1 = vector::borrow(&bytes, i);
+            let s2 = vector::borrow(&bytes, i + 1);
+            let r1 = vector::borrow(&DECODE_LUT_64, (*s1 as u64));
+            let r2 = vector::borrow(&DECODE_LUT_64, (*s2 as u64));
+            let v1 = (((*r1 << 2) | (*r2 >> 4))  as u8);
+            vector::push_back(&mut retval, v1);
         };
         return retval
     }
@@ -202,13 +204,8 @@ module sui_lipse::test{
         print(&hex);
         let e = encode_64(hex);//[89, 87, 74, 106, 90, 71, 85, 61]
         print(&e);
-        decode_64(e);
-        // let foo = b"00";
-        // print(&foo);
-        // let e = encode(foo);
-        // print(&e);
-        // let d = decode(e);
-        // print(&d);
+        let d =decode_64(e);
+        print(&d);
     }
 
     #[test] fun test_foo(){
