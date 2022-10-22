@@ -185,7 +185,6 @@ module sui_lipse::base64{
 module sui_lipse::base64_test{
     use std::vector;
     use sui_lipse::base64::{encode,decode, encode_64, decode_64};
-    use std::debug;
     const ELAYERZERO_INVALID_LENGTH: u64 = 0;
     const ELAYERZERO_INVALID_CHARACTER: u64 = 1;
 

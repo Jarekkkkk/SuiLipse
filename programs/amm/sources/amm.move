@@ -59,8 +59,10 @@ module sui_lipse::amm{
         reserve_x: Balance<X>,
         reserve_y: Balance<Y>,
         lp_supply: Supply<LP_TOKEN<V, X, Y>>,
-        fee_percentage:u64 //[1,10000] --> [0.01%, 100%]
-        //TODO: Epoch duration in Sui
+        fee_percentage:u64, //[1,10000] --> [0.01%, 100%]
+        last_block_timestamp: u64, // PENDING add the block.timestamp
+        last_price_cumulative_0: u128,
+        last_price_cumulative_1: u128,
     }
 
     // ===== Events =====
@@ -193,7 +195,8 @@ module sui_lipse::amm{
         assert!(token_x_value > 0 && token_y_value > 0, EZeroAmount);
 
         let (token_x_r, token_y_r, lp_supply) = get_reserves(pool);
-        //quote
+        //quotget_current_time_secondse
+
         let (amount_a, amount_b, coin_sui, coin_b) = if (token_x_r == 0 && token_y_r == 0){
             (token_x_value, token_y_value, token_x, token_y)
         }else{
