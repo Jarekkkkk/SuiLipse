@@ -10,7 +10,7 @@
             </div>
             <div>
                 <h3 class="type">{{type.length > 15 ? slice_str(type):type}}</h3>
-                <small class="value">Value: <span>{{value}}</span></small>
+                <small class="value">Value: <span>{{coin.balance}}</span></small>
             </div>
         </div>
     </div>
@@ -20,6 +20,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { COIN_TYPE_ARG_REGEX } from '../sui/coin'
+import { chosenGateway, connection } from '../sui/gateway';
+import { getMoveObject } from '@mysten/sui.js'
+
+
+//coin
+interface Coin {
+    id: string,
+    balance: number
+}
+
+let coin = ref<Coin>({
+    id: "",
+    balance: 0
+})
+
 
 const props = defineProps<{
     idx: number,
@@ -51,13 +66,34 @@ type Images = 'SUI' | 'JRK';
 const img_src = ref("")
 const get_img = (type: string) => {
     let img = type.substring(type.length - 3);
-    console.log(img);
     img_src.value = images[img as Images]
 }
 
-onMounted(() => {
+//fetch the price
+const fetch_price = async () => {
+    try {
+        let rpc = connection.get(chosenGateway.value);
+        if (!rpc) {
+            throw Error("rpc fetched");
+        }
+
+        let res = await rpc.getObject("0x5bf0b9ce8972d614d631618a7a149e211d1d70fd");
+        let m_obj = getMoveObject(res);
+        if (m_obj) {
+            coin.value = m_obj.fields as Coin;
+        }
+        console.log(res);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+
+
+onMounted(async () => {
     if (type.value) {
         get_img(type.value)
+        await fetch_price()
     }
 })
 

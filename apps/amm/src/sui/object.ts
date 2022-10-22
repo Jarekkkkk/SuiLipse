@@ -1,5 +1,5 @@
 
-import { SuiObjectInfo, getMoveObjectType, getObjectOwner, ObjectOwner, Coin as CoinAPI, SUI_TYPE_ARG, COIN_TYPE, SuiMoveObject, getObjectExistsResponse, getMoveObject } from '@mysten/sui.js';
+import { SuiObjectInfo, getMoveObjectType, getObjectOwner, ObjectOwner, Coin as CoinAPI, getMoveObject } from '@mysten/sui.js';
 import { BaseTransition } from 'vue';
 import { connection, chosenGateway } from "./gateway";
 import { Coin } from '../sui/coin'

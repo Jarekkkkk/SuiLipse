@@ -1,4 +1,3 @@
-
 import { ref } from "vue"
 import { JsonRpcProvider } from "@mysten/sui.js";
 
@@ -29,7 +28,6 @@ const create_connection = (network: Gateway | string) => {
   //otherwise, bulid up new connection
   let new_client = new JsonRpcProvider(getGateway(network));
   connection.set(network, new_client);
-
   return new_client
 }
 

@@ -365,7 +365,7 @@ struct CoinClientOpts {
     coin_package_id: Option<ObjectID>,
     #[clap(long)]
     keystore_path: Option<PathBuf>,
-    #[clap(long, default_value = "https://gateway.devnet.sui.io:443")]
+    #[clap(long, default_value = "https://fullnode.devnet.sui.io:443")]
     rpc_server_url: String,
     #[clap(subcommand)]
     subcommand: CoinCommand,
