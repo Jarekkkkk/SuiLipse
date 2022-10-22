@@ -1,26 +1,17 @@
 module sui_lipse::base64{
-    public fun foo ():u8{
-        5
-    }
-
-
-}
-#[test_only]
-module sui_lipse::test{
-    //use sui_lipse::base64;
-    use std::debug::print;
-    use std::vector;
+     use std::vector;
 
     const ELAYERZERO_INVALID_LENGTH: u64 = 0;
     const ELAYERZERO_INVALID_CHARACTER: u64 = 1;
 
-
     const BASE16_CHARS: vector<u8> = b"0123456789abcdef";
     const BASE64_CHARS: vector<u8> = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     const PADDING: u8 = 0x3d;
-    const FOO:vector<u8> = x"000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e0000003f3435363738393a3b3c3d00000000000000000102030405060708090a0b0c0d0e0f101112131415161718190000000000001a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132330000000000";
+    const DECODE_LUT:vector<u8> = x"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003f00010203040506070809000000000000000a0b0c0d0e0f00000000000000000000000000000000000000000000000000000a0b0c0d0e0f00000000000000000000000000000000000000000000000000";
 
-    const DECODE_LUT: vector<u8> = vector<u8>[
+    const DECODE_LUT_64:vector<u8> = x"000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e0000003f3435363738393a3b3c3d00000000000000000102030405060708090a0b0c0d0e0f101112131415161718190000000000001a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132330000000000";
+
+    const ECODE_LUT: vector<u8> = vector<u8>[
      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 1, 2,  3, 4, 5,
@@ -37,16 +28,7 @@ module sui_lipse::test{
      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
      255, 255, 255, 255
      ];
-
-    // [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //  0, 0, 0, 0, 0, 0, 0, 62, 0, 0, 0, 63, 52, 53, 54, 55, 56, 57,
-    // 58, 59, 60, 61, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6,
-    // 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-    // 25, 0, 0, 0, 0, 0, 0, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
-    // 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 0, 0, 0,
-    // 0, 0]
-    const DECODE_LUT_64: vector<u8> = vector<u8>[
+    const ECODE_LUT_64: vector<u8> = vector<u8>[
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
     255, 255, 255, 255, 255, 255, 255, 62/*43*/, 255, 255, 255, 63/*47*/, 52/*48*/, 53, 54, 55, 56, 57,
@@ -198,27 +180,52 @@ module sui_lipse::test{
          };
          return retval
     }
+}
+#[test_only]
+module sui_lipse::base64_test{
+    use std::vector;
+    use sui_lipse::base64::{encode,decode, encode_64, decode_64};
+    use std::debug;
+    const ELAYERZERO_INVALID_LENGTH: u64 = 0;
+    const ELAYERZERO_INVALID_CHARACTER: u64 = 1;
 
-    #[test] fun test_64(){
-        let hex = b"abcde"; //[97, 98, 99, 100, 101]
-        print(&hex);
-        let e = encode_64(hex);//[89, 87, 74, 106, 90, 71, 85, 61]
-        print(&e);
-        let d =decode_64(e);
-        print(&d);
-    }
+    fun equal(v1: &vector<u8>, v2: &vector<u8>): bool {
+         let n = vector::length(v1);
+         let m = vector::length(v2);
+         if (n != m) return false;
 
-    #[test] fun test_foo(){
-        //convert hex to bianry
-        let retval = vector::empty<u8>();
-        let foo = x"a0"; //[160] Question: How to input as hex value ?
-        let v = vector::borrow(&foo,0);// 160
-        let c1 = vector::borrow(&BASE16_CHARS, ((*v >> 4)/*10*/ as u64));// 97 (get the first 4)
-        let c2 = vector::borrow(&BASE16_CHARS, ((*v & 0x0f)/*0*/ as u64));// 48 (get the last 4)
+         let i = 0u64;
+         while (i < n) {
+             let v1 = vector::borrow(v1, i);
+             let v2 = vector::borrow(v2, i);
+             if (*v1 != *v2)  return false;
+             i = i + 1;
+         };
+         return true
+     }
 
-        vector::push_back(&mut retval, *c1);
-        vector::push_back(&mut retval, *c2);
+    #[test]
+     fun test_16(){
+         let bytes = x"0123456789abcdef";
+        assert!(vector::length(&bytes) == 8, ELAYERZERO_INVALID_LENGTH);
+
+        let encoded = encode(bytes);
+        assert!(vector::length(&encoded) == 2 * vector::length(&bytes), 0);
+
+        let decoded = decode(encoded);
+        assert!(equal(&bytes, &decoded) == true, 0);
+     }
+
+    #[test]
+    fun test_64(){
+        let bytes = b"abdascde";
+        assert!(vector::length(&bytes) == 8, ELAYERZERO_INVALID_LENGTH);
+
+        let encoded = encode_64(bytes);
+        let length = ((vector::length(&bytes) + 2) / 3 ) * 4;
+        assert!(vector::length(&encoded) == length, 0);
+
+        let decoded = decode_64(encoded);
+        assert!(equal(&bytes, &decoded) == true, 0);
     }
 }
-
-// [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 0, 0, 0, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 0, 0, 0, 0, 0, 0, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 0, 0, 0, 0, 0]
