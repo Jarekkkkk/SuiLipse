@@ -45,12 +45,11 @@ async fn main() -> Result<(), anyhow::Error> {
         .clone() // clone should be omit
         .unwrap_or_else(default_keystore_path);
 
+    let package_id = &std::env::var("AMM_PACKAGE").expect("should get Jarek::AMM");
     let suilipse_pkg = opts
         .suilipse_packagae_id
         .clone()
-        .unwrap_or(ObjectID::from_hex_literal(
-            &std::env::var("AMM_PACKAGE").expect("should get Jarek::AMM"),
-        )?);
+        .unwrap_or(ObjectID::from_hex_literal(&package_id).unwrap());
 
     let amm_client = AmmClient::new(&opts, suilipse_pkg, keystore_path).await?;
 
@@ -160,19 +159,22 @@ impl AmmClient {
             .read_api()
             .get_object(capability)
             .await?
-            .into_object()?;
+            .into_object()
+            .unwrap();
         let token_x_obj = self
             .client
             .read_api()
             .get_object(token_x)
             .await?
-            .into_object()?;
+            .into_object()
+            .unwrap();
         let token_y_obj = self
             .client
             .read_api()
             .get_object(token_y)
             .await?
-            .into_object()?;
+            .into_object()
+            .unwrap();
 
         let capability_state: CapabilityState =
             capability_obj.data.try_as_move().unwrap().deserialize()?;
@@ -195,8 +197,8 @@ impl AmmClient {
         println!("foo{:?}", foo);
         let type_args = vec![
             //SuiTypeTag::from(TypeTag::(foo)),
-            SuiTypeTag::from(token_x_obj.get_move_template_type()?),
-            SuiTypeTag::from(token_y_obj.get_move_template_type()?),
+            SuiTypeTag::from(token_x_obj.get_move_template_type().unwrap()),
+            SuiTypeTag::from(token_y_obj.get_move_template_type().unwrap()),
         ];
         println!("signer {}", &signer);
         let create_pool_call = self
@@ -276,7 +278,7 @@ struct AmmClientOpts {
     suilipse_packagae_id: Option<ObjectID>,
     #[clap(long)]
     keystore_path: Option<PathBuf>,
-    #[clap(long, default_value = "https://gateway.devnet.sui.io:443")]
+    #[clap(long, default_value = "https://fullnode.devnet.sui.io:443")]
     rpc_server_url: String,
     #[clap(subcommand)]
     subcommand: AmmCommand,

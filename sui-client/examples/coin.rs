@@ -35,14 +35,17 @@ async fn main() -> Result<(), anyhow::Error> {
         .clone() // clone should be omit
         .unwrap_or_else(default_keystore_path);
 
+    let pkg_id = &std::env::var("SUI").expect("should get Jarek::AMM");
     let coin_pkg = opts
         .coin_package_id
         .clone()
-        .unwrap_or(ObjectID::from_hex_literal(
-            &std::env::var("SUI").expect("should get SUI FRAMEWORK"),
-        )?);
+        .unwrap_or(ObjectID::from_hex_literal(pkg_id).unwrap());
 
     let coin_client = CoinClient::new(&opts, coin_pkg, keystore_path).await?;
+    let signers = coin_client.keystore.addresses();
+    for i in 0..signers.len() {
+        println!("\nsigners- {} - {:?}", i, coin_client.get_signer(i));
+    }
 
     match opts.subcommand {
         CoinCommand::MintAndTransfer {
@@ -68,6 +71,8 @@ async fn main() -> Result<(), anyhow::Error> {
             coin_client.transfer(coin, recipient).await?;
         }
         CoinCommand::Join { coin_a, coin_b } => {
+            println!("coin_a:{:?}", coin_a);
+            println!("coin_b:{:?}", coin_b);
             coin_client.join(coin_a, coin_b).await?;
         }
     }
@@ -144,7 +149,8 @@ impl CoinScript for CoinClient {
             .read_api()
             .get_object(treasury_cap)
             .await?
-            .into_object()?;
+            .into_object()
+            .unwrap();
         let treasury_cap_reference = treasury_cap_obj.reference.to_object_ref();
         let treasury_cap_state: TreasuryCapState =
             treasury_cap_obj.data.try_as_move().unwrap().deserialize()?;
@@ -161,7 +167,7 @@ impl CoinScript for CoinClient {
         //create tx
 
         //generic type -- the most desireable way to retrieve the MOVE_TYPE
-        let treasury_cap_type = treasury_cap_obj.get_move_template_type()?;
+        let treasury_cap_type = treasury_cap_obj.get_move_template_type().unwrap();
         let type_args = vec![SuiTypeTag::from(treasury_cap_type)];
 
         let mint_and_transfer_call = self
@@ -227,19 +233,20 @@ impl CoinScript for CoinClient {
             .read_api()
             .get_object(coin)
             .await?
-            .into_object()?;
+            .into_object()
+            .unwrap();
 
         let coin_state: CoinState = coin_obj.data.try_as_move().unwrap().deserialize()?;
 
         println!("treasuy_cap_state:{:?}", &coin_state);
 
         let coin_reference = coin_obj.reference.to_object_ref();
-        let coin_obj: Object = coin_obj.try_into()?;
+        let coin_obj: Object = coin_obj.try_into().unwrap();
 
         //create tx
 
         // get the inner type of type
-        let coin_type = coin_obj.get_move_template_type()?;
+        let coin_type = coin_obj.get_move_template_type().unwrap();
         let type_args = vec![SuiTypeTag::from(coin_type)];
 
         let transfer_call = self
@@ -271,59 +278,19 @@ impl CoinScript for CoinClient {
         Ok(())
     }
     async fn join(&self, coin_a: ObjectID, coin_b: ObjectID) -> Result<(), anyhow::Error> {
-        let signer = self.keystore.addresses()[1];
-
-        self.client
-            .wallet_sync_api()
-            .sync_account_state(signer)
-            .await?;
+        let signer = self.keystore.addresses()[0];
 
         let api = self.client.read_api();
-
-        //get the state
-        let coin_a = api.get_object(coin_a).await?.into_object()?;
-
-        let coin_a_state: CoinState = coin_a.data.try_as_move().unwrap().deserialize()?;
-        println!("coin_a_state:{:?}", &coin_a_state);
-
-        let coin_a_reference = coin_a.reference.to_object_ref();
-
-        let coin_b_reference = api
-            .get_object(coin_b)
-            .await?
-            .into_object()?
-            .reference
-            .to_object_ref();
-
-        let coin_a: Object = coin_a.try_into()?;
-        //create tx
-
-        //generic type -- the most desireable way to retrieve the MOVE_TYPE
-        let coin_type = coin_a.get_move_template_type()?;
-        let type_args = vec![SuiTypeTag::from(coin_type)];
 
         let join_call = self
             .client
             .transaction_builder()
-            .move_call(
-                signer,
-                self.coin_package_id,
-                "coin",
-                "join",
-                type_args,
-                vec![
-                    SuiJsonValue::from_str(&coin_a_reference.0.to_string())?,
-                    SuiJsonValue::from_str(&coin_b_reference.0.to_string())?,
-                ],
-                None, // The gateway server will pick a gas object belong to the signer if not provided.
-                1000,
-            )
+            .merge_coins(signer, coin_a, coin_b, None, 1000)
             .await?;
 
         let signer = self.keystore.signer(signer);
 
         let signature = Signature::new(&join_call, &signer);
-
         let response = self
             .client
             .quorum_driver()
@@ -336,17 +303,13 @@ impl CoinScript for CoinClient {
 
         let coin_id = response
             .effects
-            .created
-            .first() //first created object in this tx
-            .expect("decode joined coin")
+            .mutated
+            .first()
+            .expect("decoded mut obj")
             .reference
             .object_id;
 
-        println!(
-            "merge coin `{}` to {:?}",
-            coin_id,
-            &coin_b_reference.0.to_string()
-        );
+        println!("merged coin `{}`", coin_id,);
 
         Ok(())
     }

@@ -60,6 +60,23 @@ module sui_lipse::base64{
          };
          return retval
     }
+    public fun decode(bytes: vector<u8>): vector<u8> {
+         let retval = vector::empty<u8>();
+         let n = vector::length(&bytes);
+         assert!(n & 1 == 0, ELAYERZERO_INVALID_LENGTH);
+         let i = 0u64;
+         while (i < n) {
+             let s0 = vector::borrow(&bytes, i);
+             let s1 = vector::borrow(&bytes, i + 1);
+             let r0 = vector::borrow(&DECODE_LUT, ((*s0) as u64));
+             let r1 = vector::borrow(&DECODE_LUT, ((*s1) as u64));
+             assert!((*r0 | *r1) < 128u8, ELAYERZERO_INVALID_CHARACTER);
+             let v = (((*r0 << 4) | *r1) as u8);
+             vector::push_back(&mut retval, v);
+             i = i + 2;
+         };
+         return retval
+    }
     public fun encode_64(bytes: vector<u8>): vector<u8>{
         if (vector::length(&bytes) == 0){
             return b""
@@ -104,7 +121,6 @@ module sui_lipse::base64{
         };
         return retval
     }
-
     public fun decode_64(bytes: vector<u8>): vector<u8>{
         if (vector::length(&bytes) == 0){
             return b""
@@ -163,23 +179,6 @@ module sui_lipse::base64{
         return retval
     }
 
-    public fun decode(bytes: vector<u8>): vector<u8> {
-         let retval = vector::empty<u8>();
-         let n = vector::length(&bytes);
-         assert!(n & 1 == 0, ELAYERZERO_INVALID_LENGTH);
-         let i = 0u64;
-         while (i < n) {
-             let s0 = vector::borrow(&bytes, i);
-             let s1 = vector::borrow(&bytes, i + 1);
-             let r0 = vector::borrow(&DECODE_LUT, ((*s0) as u64));
-             let r1 = vector::borrow(&DECODE_LUT, ((*s1) as u64));
-             assert!((*r0 | *r1) < 128u8, ELAYERZERO_INVALID_CHARACTER);
-             let v = (((*r0 << 4) | *r1) as u8);
-             vector::push_back(&mut retval, v);
-             i = i + 2;
-         };
-         return retval
-    }
 }
 #[test_only]
 module sui_lipse::base64_test{

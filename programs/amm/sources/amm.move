@@ -60,9 +60,9 @@ module sui_lipse::amm{
         reserve_y: Balance<Y>,
         lp_supply: Supply<LP_TOKEN<V, X, Y>>,
         fee_percentage:u64, //[1,10000] --> [0.01%, 100%]
-        last_block_timestamp: u64, // PENDING add the block.timestamp
-        last_price_cumulative_0: u128,
-        last_price_cumulative_1: u128,
+        // last_block_timestamp: u64, // PENDING add the block.timestamp
+        // last_price_cumulative_0: u128,
+        // last_price_cumulative_1: u128,
     }
 
     // ===== Events =====

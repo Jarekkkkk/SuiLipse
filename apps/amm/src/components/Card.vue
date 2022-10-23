@@ -82,7 +82,6 @@ const fetch_price = async () => {
         if (m_obj) {
             coin.value = m_obj.fields as Coin;
         }
-        console.log(res);
     } catch (error) {
         console.error(error);
     }
