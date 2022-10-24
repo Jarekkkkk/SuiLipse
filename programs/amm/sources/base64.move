@@ -121,7 +121,7 @@ module sui_lipse::base64{
         };
         return retval
     }
-    public fun decode_64(bytes: vector<u8>): vector<u8>{
+public fun decode_64(bytes: vector<u8>): vector<u8>{
         if (vector::length(&bytes) == 0){
             return b""
         };
