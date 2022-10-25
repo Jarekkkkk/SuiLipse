@@ -1,16 +1,16 @@
 <template >
     <div class="card">
         <div class="img-container">
-            <img :src="img_src" alt={{idx}} class="avatar">
+            <img :src="img_src" alt={{idx}} srcset="">
         </div>
         <div class="info">
             <div class="tooltip" @mouseover="toggle_hover" @mouseleave="reset_hover" style="position: relative">
-                <span class="tip-text" :class="hover_class">{{objectId}}</span>
-                <span class="number">{{slice_str(objectId)}}</span>
+                <span class="tip-text" :class="hover_class">{{ objectId }}</span>
+                <span class="number">{{ slice_str(objectId) }}</span>
             </div>
             <div>
-                <h3 class="type">{{type.length > 15 ? slice_str(type):type}}</h3>
-                <small class="value">Value: <span>{{coin.balance}}</span></small>
+                <h3 class="type">{{ type.length > 15 ? slice_str(type) : type }}</h3>
+                <small class="value">Value: <span>{{ coin.balance }}</span></small>
             </div>
         </div>
     </div>
@@ -77,7 +77,7 @@ const fetch_price = async () => {
             throw Error("rpc fetched");
         }
 
-        let res = await rpc.getObject("0x5bf0b9ce8972d614d631618a7a149e211d1d70fd");
+        let res = await rpc.getObject(props.objectId);
         let m_obj = getMoveObject(res);
         if (m_obj) {
             coin.value = m_obj.fields as Coin;

@@ -114,8 +114,7 @@ trait CoinScript: Sized {
     //fn get_move_type();
 }
 
-#[async_trait]
-impl CoinScript for CoinClient {
+impl CoinClient {
     async fn new(
         opts: &CoinClientOpts,
         coin_pkg: ObjectID,
@@ -132,6 +131,27 @@ impl CoinScript for CoinClient {
     }
     fn get_signer(&self, idx: usize) -> SuiAddress {
         self.keystore.addresses()[idx]
+    }
+    pub async fn get_object_owner(&self, id: &ObjectID) -> Result<SuiAddress, anyhow::Error> {
+        let object = self
+            .client
+            .read_api()
+            .get_object(*id)
+            .await?
+            .into_object()
+            .unwrap();
+        Ok(object.owner.get_owner_address().unwrap())
+    }
+
+    pub async fn try_get_object_owner(
+        &self,
+        id: &Option<ObjectID>,
+    ) -> Result<Option<SuiAddress>, anyhow::Error> {
+        if let Some(id) = id {
+            Ok(Some(self.get_object_owner(id).await?))
+        } else {
+            Ok(None)
+        }
     }
     async fn mint_and_transfer(
         &self,
@@ -285,12 +305,11 @@ impl CoinScript for CoinClient {
         let join_call = self
             .client
             .transaction_builder()
-            .merge_coins(signer, coin_a, coin_b, None, 1000)
+            .merge_coins(signer, coin_a, coin_b, None, 20_000)
             .await?;
 
-        let signer = self.keystore.signer(signer);
+        let signature = self.keystore.sign(&signer, &join_call.to_bytes())?;
 
-        let signature = Signature::new(&join_call, &signer);
         let response = self
             .client
             .quorum_driver()
@@ -300,7 +319,6 @@ impl CoinScript for CoinClient {
         if status.is_err() {
             eprintln!("\nErr: {:?}", status)
         }
-
         let coin_id = response
             .effects
             .mutated
