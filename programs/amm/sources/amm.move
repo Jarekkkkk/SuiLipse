@@ -5,7 +5,6 @@ module sui_lipse::amm{
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui::event;
-    use std::string::{Self, String};
     use sui_lipse::amm_math;
     use sui::vec_set::{Self, VecSet};
 
@@ -37,7 +36,6 @@ module sui_lipse::amm{
     };
 
     // ===== Object =====
-
     //must be `uppercase` to become one-time witness
     struct LP_TOKEN<phantom V, phantom X, phantom Y> has drop {}
 
@@ -52,44 +50,50 @@ module sui_lipse::amm{
         //could config further features
     }
 
+    struct PoolIdsList has key {
+        id: UID,
+        pool_ids: vector<address>
+    }
+
     struct Pool<phantom V, phantom X, phantom Y> has key{
         id: UID,
-        name: String,
-        symbol: String,
         reserve_x: Balance<X>,
         reserve_y: Balance<Y>,
         lp_supply: Supply<LP_TOKEN<V, X, Y>>,
-        fee_percentage:u64, //[1,10000] --> [0.01%, 100%]
-        // last_block_timestamp: u64, // PENDING add the block.timestamp
-        // last_price_cumulative_0: u128,
-        // last_price_cumulative_1: u128,
+        fee_percentage:u64, // 1 equals to 0.01%
+        last_block_timestamp: u64,
+        last_price_x_cumulative: u128,
+        last_price_y_cumulative: u128,
+        //PENDING: locked
     }
 
     // ===== Events =====
     struct PoolCreated has copy, drop{
         pool: ID,
-        name: String,
-        symbol: String,
-        fee_percentage: u64
-        //Quesiton: can i declare type ?
-        //token_a: TYPE_A
-        //token_b: TYPE_B
+        creator: address
     }
-    struct Mint has copy, drop{
-        sender: address,
-        amount0:u64,
-        amount1:u64
+    struct LiquidityAddedEvent<phantom V, phantom X, phantom Y> has copy, drop{
+        added_amount_0:u64,
+        added_amount_1:u64,
+        lp_tokens_received: u64
     }
-    struct Burn has copy, drop{
-        sender: address,
-        lp_token:u64,
-        amount0:u64,
-        amount1:u64,
+    struct LiquidityRemovedEvent<phantom V, phantom X, phantom Y> has copy, drop{
+        returned_amount_0:u64,
+        returned_amount_1:u64,
+        lp_tokens_removed: u64
     }
-    struct Swap has copy, drop{
-        sender: address,
-        amountIn:u64,
-        amountOut:u64,
+    struct SwapEvent<phantom V, phantom X, phantom Y> has copy, drop{
+        coin0_in: u64,
+        coin1_out: u64,
+    }
+    struct OracleUpdatedEvent<phantom CT0, phantom CT1, phantom Curve> has copy, drop {
+        last_price_cumulative_0: u128,
+        last_price_cumulative_1: u128,
+    }
+
+    //mocked block time stamp
+    fun block_timestamp():u64{
+        1
     }
 
     /// publish once to trasnfer Capabilty to module publisher
@@ -123,17 +127,15 @@ module sui_lipse::amm{
         token_x: Coin<X>,
         token_y: Coin<Y>,
         fee_percentage: u64,
-        name: vector<u8>,
-        symbol: vector<u8>,
         ctx: &mut TxContext
     ){
-        //verify in non-innder function
+        //verify in non-inner function
         let sender = tx_context::sender(ctx);
         assert!(vec_set::contains<address>(&guardians.guardians, &sender), ENotGuardians);
 
         transfer::share_object(
             create_pool_(
-                 cap, token_x, token_y, fee_percentage, name, symbol, ctx
+                 cap, token_x, token_y, fee_percentage, ctx
             )
         );
     }
@@ -143,8 +145,6 @@ module sui_lipse::amm{
         token_x: Coin<X>,
         token_y: Coin<Y>,
         fee_percentage: u64,
-        name: vector<u8>,
-        symbol: vector<u8>,
         ctx: &mut TxContext
     ):Coin<LP_TOKEN<V, X, Y>>{
         let token_x_value = coin::value(&token_x);
@@ -164,15 +164,14 @@ module sui_lipse::amm{
             reserve_y:coin::into_balance(token_y),
             lp_supply,
             fee_percentage,
-            name:string::utf8(name),
-            symbol:string::utf8(symbol),
+            last_block_timestamp: block_timestamp(),
+            last_price_x_cumulative: 0,
+            last_price_y_cumulative: 0,
         };
          event::emit(
             PoolCreated{
                 pool:object::id(&pool),
-                name: string::utf8(name),
-                symbol: string::utf8(symbol),
-                fee_percentage
+                creator: tx_context::sender(ctx)
             }
         );
         transfer::share_object(pool);
@@ -229,10 +228,10 @@ module sui_lipse::amm{
 
         let output_balance = balance::increase_supply<LP_TOKEN<V, X, Y>>(&mut pool.lp_supply, lp_output);
         event::emit(
-            Mint{
-                sender: tx_context::sender(ctx),
-                amount0: amount_a,
-                amount1: amount_b
+            LiquidityAddedEvent<V, X, Y>{
+                added_amount_0:amount_a,
+                added_amount_1:amount_b,
+                lp_tokens_received: lp_output
             }
         );
         coin::from_balance(output_balance, ctx)
@@ -258,11 +257,10 @@ module sui_lipse::amm{
         balance::decrease_supply<LP_TOKEN<V, X, Y>>(&mut pool.lp_supply,coin::into_balance(lp_token));
 
         event::emit(
-            Burn{
-                sender: tx_context::sender(ctx),
-                lp_token: lp_value,
-                amount0: token_x_output,
-                amount1: token_y_output
+            LiquidityRemovedEvent<V ,X, Y>{
+                returned_amount_0:token_x_output,
+                returned_amount_1:token_y_output,
+                lp_tokens_removed: lp_value
             }
         );
         (
@@ -288,10 +286,9 @@ module sui_lipse::amm{
         let x_balance = coin::into_balance(token_x);//get the inner ownership
 
         event::emit(
-            Swap{
-                sender: tx_context::sender(ctx),
-                amountIn: token_x_value,
-                amountOut: output_amount
+            SwapEvent<V , X, Y>{
+                coin0_in: token_x_value,
+                coin1_out: output_amount,
             }
         );
         balance::join<X>(&mut pool.reserve_x, x_balance);// transaction fee goes back to pool
@@ -314,10 +311,9 @@ module sui_lipse::amm{
         let token_y_balance = coin::into_balance(token_y);
 
          event::emit(
-            Swap{
-                sender: tx_context::sender(ctx),
-                amountIn: token_y_value,
-                amountOut: output_amount
+            SwapEvent<V , X, Y>{
+                coin0_in: token_y_value,
+                coin1_out: output_amount,
             }
         );
         balance::join<Y>(&mut pool.reserve_y, token_y_balance);
@@ -336,12 +332,6 @@ module sui_lipse::amm{
         )
     }
 
-    public fun name<V ,X, Y>(pool: &Pool<V, X, Y>):&String{
-        &pool.name
-    }
-    public fun symbol<V ,X, Y>(pool: &Pool<V ,X, Y>):&String{
-        &pool.symbol
-    }
 
     //glue calling for init the module
     #[test_only]
@@ -421,8 +411,6 @@ module sui_lipse::amm_test{
                 mint<X>(token_x_amt, ctx(test)),
                 mint<Y>(token_y_amt, ctx(test)),
                 FEE,
-                b"SUI v1 pool",
-                b"SUI-JRK",
                 ctx(test)
             );
 

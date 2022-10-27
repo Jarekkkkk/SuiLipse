@@ -187,8 +187,8 @@ module sui_lipse::nft_collection{
         nft.description = ascii::string(new_description)
     }
 
-#[test]
-public fun test(){
+    #[test]
+    public fun test(){
         use sui::test_scenario;
         use std::ascii;
         use sui::url;

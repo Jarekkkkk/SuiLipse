@@ -12,7 +12,6 @@ module sui_lipse::sbt{
         id: UID,
         url: Url
     }
-
     fun init(ctx: &mut TxContext){
         let sbt = SBT{
             id: object::new(ctx),
@@ -21,7 +20,6 @@ module sui_lipse::sbt{
         update_svg_name(&mut sbt, b"Jarek.sui");
         transfer::transfer(sbt, tx_context::sender(ctx));
     }
-
     public entry fun update_url(sbt: &mut SBT, url: vector<u8>){
         let url = ascii::string(url);
         url::update(&mut sbt.url, url);
@@ -30,7 +28,6 @@ module sui_lipse::sbt{
         let url = ascii::string(prefix_svg(generate_svg(name)));
         url::update(&mut sbt.url, url);
     }
-
     fun prefix_svg(data: vector<u8>):vector<u8>{
         let prefix = b"data:image/svg+xml;base64,";
         vector::append(&mut prefix, data);
