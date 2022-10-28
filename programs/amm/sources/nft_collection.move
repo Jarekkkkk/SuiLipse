@@ -6,6 +6,7 @@ module sui_lipse::nft_collection{
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
     use sui::vec_set::{Self, VecSet};
+    use sui::dynamic_field;
 
 
     const DEFAULT_CAPACITY:u64  = 100;
@@ -20,7 +21,7 @@ module sui_lipse::nft_collection{
         max_capacity: u64, //current capacity is limited, for efficient consideration
     }
     //dashboard
-    struct Card has key{
+    struct Card has key, store{
         id: UID,
         name: String,
         description: String,
@@ -116,7 +117,8 @@ module sui_lipse::nft_collection{
         //let card_id = typed_id::new(&card); // return TypedID<T>
 
         //lock the card by transerring to collection
-        transfer::transfer_to_object(card, c);
+        dynamic_field::add(&mut c.id, object::id(&card),card);
+
         //card_id
     }
 
