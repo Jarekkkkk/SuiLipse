@@ -12,31 +12,29 @@ module sui_lipse::amm{
 
     // ===== EVENT =====
     /// input amount is zero, including 'pair of assets<X,Y>' and 'LP_TOKEN'
-    const EZeroAmount:u64 = 0;
+    const ERR_Zero_Amount:u64 = 0;
     /// when one of pair tokens is empty
-    const EReservesEmpty:u64 = 1;
+    const ERR_Reserves_Empty:u64 = 1;
     /// incoreect fee range, [0,100000]
-    const EInvalidFee:u64 = 2;
+    const ERR_Invalid_Fee:u64 = 2;
     /// when Pool is over MAX_POOL_VALUE
-    const EFullPool:u64 = 3;
+    const ERR_Full_Pool:u64 = 3;
     /// when signer is not included in list
-    const ENotGuardians:u64 = 4;
+    const ERR_Not_Guardians:u64 = 4;
     /// quoted amount is mismatched with input
-    const EInsufficientAAmount:u64 = 6;
-    const EInsufficientBAmount:u64 = 7;
-
+    const ERR_Insufficient_A_Amount:u64 = 6;
+    const ERR_Insufficient_B_Amount:u64 = 7;
     /// minimum of Liquiditya to prevent math rounding problems
     const MINIMUM_LIQUIDITY:u128 = 10;
-
     // == TYPE ==
     const ERR_PAIR_CANT_BE_SAME_TYPE: u64 = 11;
     const ERR_WRONG_PAIR_ORDERING: u64 = 12;
     /// safety
     const ERR_POOL_IS_LOCKED: u64 = 111;
-
+    const ERR_ALREADY_EMERGENCY: u64 = 112;
+    const ERR_EMERGENCY: u64 = 113;
     /// For fees calculation
     const FEE_SCALING:u64 = 10000;
-
     /// - Max stored value for both tokens is: U64_MAX / 10_000
     const MAX_POOL_VALUE: u64 = {
         18446744073709551615/*U64_MAX*/ / 10000
@@ -45,23 +43,19 @@ module sui_lipse::amm{
     // ===== Object =====
     //must be `uppercase` to become one-time witness
     struct LP_TOKEN<phantom V, phantom X, phantom Y> has drop {}
-
     struct Guardians has key{
         id: UID,
         guardians: VecSet<address>//only guardians can create pool
     }
-
     //only guardians could own PoolCapability
     struct PoolCapability has key, store {
         id: UID,
         //could config further features, ex: individually flexible fee rated
     }
-
     struct PoolIdsList has key {
         id: UID,
         pool_ids: VecSet<address>
     }
-
     struct Pool<phantom V, phantom X, phantom Y> has key{
         id: UID,
         reserve_x: Balance<X>,
@@ -71,7 +65,8 @@ module sui_lipse::amm{
         last_block_timestamp: u64,
         last_price_x_cumulative: u128,
         last_price_y_cumulative: u128,
-        locked: bool
+        locked: bool,
+        emergency: bool
     }
 
     // ===== Events =====
@@ -102,11 +97,64 @@ module sui_lipse::amm{
     }
 
     // ===== Assertion =====
-    fun assert_unlocked<V, X, Y>(pool: &Pool<V, X, Y>){
+    fun assert_pool_unlocked<V, X, Y>(pool: &Pool<V, X, Y>){
         assert!(!pool.locked, ERR_POOL_IS_LOCKED);
+    }
+    fun assert_no_emergency<V, X, Y>(pool: &Pool<V, X, Y> ){
+        assert!(!pool.emergency, ERR_EMERGENCY);
+    }
+    fun assert_sorted<CT0, CT1>() {
+        let ct0_name = type_name::into_string(type_name::get<CT0>());
+        let ct1_name = type_name::into_string(type_name::get<CT1>());
+
+        assert!(ct0_name != ct1_name, ERR_PAIR_CANT_BE_SAME_TYPE);
+
+        let ct0_bytes = std::ascii::as_bytes(&ct0_name);
+        let ct1_bytes = std::ascii::as_bytes(&ct1_name);
+
+        assert!(vector::length<u8>(ct0_bytes) <= vector::length<u8>(ct1_bytes), ERR_WRONG_PAIR_ORDERING);
+
+        if (vector::length<u8>(ct0_bytes) == vector::length<u8>(ct1_bytes)) {
+            let count = vector::length<u8>(ct0_bytes);
+            let i = 0;
+            while (i < count) {
+                assert!(*vector::borrow<u8>(ct0_bytes, i) <= *vector::borrow<u8>(ct1_bytes, i), ERR_WRONG_PAIR_ORDERING);
+            }
+        };
+    }
+
+    // ===== Utils =====
+    fun block_timestamp():u64{
+        1
     }
 
     // ===== Entry Functions =====
+    /// for guardians creating type when publishing the module
+    entry fun create_capability(guardians: &Guardians, ctx: &mut TxContext){
+        let pool = create_capability_(ctx);
+        let pool_capability_id = object::id(&pool);
+        let sender = tx_context::sender(ctx);
+
+        assert!(vec_set::contains<address>(&guardians.guardians, &sender), ERR_Not_Guardians);
+
+        transfer::transfer(
+           pool,
+            tx_context::sender(ctx)
+        );
+
+        event::emit(
+            PoolCapabilityCreatedEvent{
+                pool_capability_id
+            }
+        );
+    }
+    entry fun change_emergency<V, X, Y>(
+        pool: &mut Pool<V, X, Y>,
+        _cap: &PoolCapability,
+    ){
+        assert!(pool.emergency == false, ERR_ALREADY_EMERGENCY);
+        pool.emergency = true;
+    }
     /// only guardians could create pool by passing the witness type
     entry fun create_pool<V, X, Y>(
         _cap: &PoolCapability,
@@ -132,25 +180,6 @@ module sui_lipse::amm{
             }
         );
     }
-    /// for guardians creating type when publishing the module
-    entry fun create_capability(guardians: &Guardians, ctx: &mut TxContext){
-        let pool = create_capability_(ctx);
-        let pool_capability_id = object::id(&pool);
-        let sender = tx_context::sender(ctx);
-
-        assert!(vec_set::contains<address>(&guardians.guardians, &sender), ENotGuardians);
-
-        transfer::transfer(
-           pool,
-            tx_context::sender(ctx)
-        );
-
-        event::emit(
-            PoolCapabilityCreatedEvent{
-                pool_capability_id
-            }
-        );
-    }
     entry fun add_liquidity<V, X, Y>(
         pool: &mut Pool<V, X, Y>,
         token_x: Coin<X>,
@@ -159,6 +188,9 @@ module sui_lipse::amm{
         amount_y_min:u64,
         ctx:&mut TxContext
     ){
+        assert_no_emergency(pool);
+        assert_pool_unlocked(pool);
+
         let (output_lp_coin, amount_a, amount_b, lp_output) = add_liquidity_(pool, token_x, token_y, amount_x_min, amount_y_min, ctx);
 
         transfer::transfer(
@@ -181,6 +213,9 @@ module sui_lipse::amm{
         amount_b_min:u64,
         ctx:&mut TxContext
     ){
+        assert_no_emergency(pool);
+        assert_pool_unlocked(pool);
+
         let (returned_x, returned_y, lp_value) = remove_liquidity_(pool, lp_token, amount_a_min, amount_b_min, ctx);
         let token_x_output = coin::value(&returned_x);
         let token_y_output = coin::value(&returned_y);
@@ -207,6 +242,9 @@ module sui_lipse::amm{
         token_x: Coin<X>,
         ctx: &mut TxContext
     ){
+        assert_no_emergency(pool);
+        assert_pool_unlocked(pool);
+
         let (coin_x, input_value, output_value) = swap_token_x_(pool, token_x, ctx);
 
         transfer::transfer(coin_x, tx_context::sender(ctx));
@@ -223,6 +261,9 @@ module sui_lipse::amm{
         token_y: Coin<Y>,
         ctx: &mut TxContext
     ){
+        assert_no_emergency(pool);
+        assert_pool_unlocked(pool);
+
         let (coin_y, coin0_in, coin1_out) = swap_token_y_(pool, token_y, ctx);
 
         transfer::transfer(
@@ -231,7 +272,7 @@ module sui_lipse::amm{
         );
 
         event::emit(
-            SwapEvent<V , X, Y>{
+            SwapEvent<V, X, Y>{
                 coin0_in,
                 coin1_out
             }
@@ -263,7 +304,6 @@ module sui_lipse::amm{
             }
         );
     }
-
     fun create_capability_(ctx: &mut TxContext):PoolCapability{
         PoolCapability{
             id: object::new(ctx)
@@ -280,9 +320,9 @@ module sui_lipse::amm{
         let token_x_value = coin::value(&token_x);
         let token_y_value = coin::value(&token_y);
 
-        assert!(token_x_value > 0 && token_y_value > 0, EZeroAmount);
-        assert!(token_x_value < MAX_POOL_VALUE && token_y_value < MAX_POOL_VALUE, EFullPool);
-        assert!(fee_percentage > 0 && fee_percentage <= 10000, EInvalidFee);
+        assert!(token_x_value > 0 && token_y_value > 0, ERR_Zero_Amount);
+        assert!(token_x_value < MAX_POOL_VALUE && token_y_value < MAX_POOL_VALUE, ERR_Full_Pool);
+        assert!(fee_percentage > 0 && fee_percentage <= 10000, ERR_Invalid_Fee);
 
         let lp_shares = amm_math::get_l(token_x_value, token_y_value);
         let lp_supply = balance::create_supply(LP_TOKEN<V, X, Y>{});
@@ -298,7 +338,8 @@ module sui_lipse::amm{
             last_block_timestamp: block_timestamp(),
             last_price_x_cumulative: 0,
             last_price_y_cumulative: 0,
-            locked: false
+            locked: false,
+            emergency: false
         };
         vec_set::insert(&mut pool_list.pool_ids, object::id_address(&pool));
         transfer::share_object(pool);
@@ -323,7 +364,7 @@ module sui_lipse::amm{
     ){
         let token_x_value = coin::value(&token_x);
         let token_y_value = coin::value(&token_y);
-        assert!(token_x_value > 0 && token_y_value > 0, EZeroAmount);
+        assert!(token_x_value > 0 && token_y_value > 0, ERR_Zero_Amount);
 
         let (token_x_r, token_y_r, lp_supply) = get_reserves(pool);
         //quotget_current_time_secondse
@@ -333,14 +374,14 @@ module sui_lipse::amm{
         }else{
             let opt_b  = amm_math::quote(token_x_r, token_y_r, token_x_value);
             if (opt_b <= token_y_value){
-                assert!(opt_b >= amount_y_min, EInsufficientBAmount);
+                assert!(opt_b >= amount_y_min, ERR_Insufficient_B_Amount);
 
                 let split_b = coin::take<Y>(coin::balance_mut<Y>(&mut token_y), opt_b, ctx);
                 transfer::transfer(token_y, tx_context::sender(ctx));//send back the remained token
                 (token_x_value, opt_b,  token_x, split_b)
             }else{
                 let opt_a = amm_math::quote(token_y_r, token_x_r, token_y_value);
-                assert!(opt_a <= token_x_value && opt_a >= amount_x_min, EInsufficientAAmount );
+                assert!(opt_a <= token_x_value && opt_a >= amount_x_min, ERR_Insufficient_A_Amount );
 
                 let split_a = coin::take<X>(coin::balance_mut<X>(&mut token_x), opt_b, ctx);
                 transfer::transfer(token_x, tx_context::sender(ctx));
@@ -355,8 +396,8 @@ module sui_lipse::amm{
         let token_x_pool = balance::join<X>(&mut pool.reserve_x, coin::into_balance(coin_sui));
         let token_y_pool = balance::join<Y>(&mut pool.reserve_y,  coin::into_balance(coin_b));
 
-        assert!(token_x_pool < MAX_POOL_VALUE ,EFullPool);
-        assert!(token_y_pool < MAX_POOL_VALUE ,EFullPool);
+        assert!(token_x_pool < MAX_POOL_VALUE ,ERR_Full_Pool);
+        assert!(token_y_pool < MAX_POOL_VALUE ,ERR_Full_Pool);
 
         let output_balance = balance::increase_supply<LP_TOKEN<V, X, Y>>(&mut pool.lp_supply, lp_output);
 
@@ -382,12 +423,12 @@ module sui_lipse::amm{
         u64,
     ){
         let lp_value = coin::value(&lp_token);
-        assert!(lp_value > 0, EZeroAmount);
+        assert!(lp_value > 0, ERR_Zero_Amount);
 
         let (res_x, res_y, lp_s) = get_reserves(pool);
         let (token_x_output, token_y_output) = amm_math::withdraw_liquidity(res_x, res_y, lp_value, lp_s);
-        assert!(token_x_output >= amount_a_min, EInsufficientAAmount);
-        assert!(token_y_output >= amount_b_min, EInsufficientBAmount);
+        assert!(token_x_output >= amount_a_min, ERR_Insufficient_A_Amount);
+        assert!(token_y_output >= amount_b_min, ERR_Insufficient_B_Amount);
 
         balance::decrease_supply<LP_TOKEN<V, X, Y>>(&mut pool.lp_supply,coin::into_balance(lp_token));
 
@@ -411,7 +452,7 @@ module sui_lipse::amm{
         u64
     ){
         let token_x_value = coin::value(&token_x);
-        assert!(token_x_value >0, EZeroAmount);
+        assert!(token_x_value >0, ERR_Zero_Amount);
 
         let (reserve_x, reserve_y, _) = get_reserves(pool);
         let output_amount = amm_math::get_output(token_x_value, reserve_x, reserve_y, pool.fee_percentage, FEE_SCALING);
@@ -439,10 +480,10 @@ module sui_lipse::amm{
         u64
     ){
         let token_y_value = coin::value(&token_y);
-        assert!(token_y_value > 0, EZeroAmount);
+        assert!(token_y_value > 0, ERR_Zero_Amount);
 
         let (reserve_x, reserve_y, _) = get_reserves(pool);
-        assert!(reserve_x > 0 && reserve_y > 0, EReservesEmpty);
+        assert!(reserve_x > 0 && reserve_y > 0, ERR_Reserves_Empty);
 
         let output_amount = amm_math::get_output(token_y_value, reserve_y, reserve_x, pool.fee_percentage, FEE_SCALING);
         let token_y_balance = coin::into_balance(token_y);
@@ -466,29 +507,6 @@ module sui_lipse::amm{
             balance::value(&pool.reserve_y),
             balance::supply_value(&pool.lp_supply)
         )
-    }
-    /// mock block time stamp
-    fun block_timestamp():u64{
-        1
-    }
-    fun assert_sorted<CT0, CT1>() {
-        let ct0_name = type_name::into_string(type_name::get<CT0>());
-        let ct1_name = type_name::into_string(type_name::get<CT1>());
-
-        assert!(ct0_name != ct1_name, ERR_PAIR_CANT_BE_SAME_TYPE);
-
-        let ct0_bytes = std::ascii::as_bytes(&ct0_name);
-        let ct1_bytes = std::ascii::as_bytes(&ct1_name);
-
-        assert!(vector::length<u8>(ct0_bytes) <= vector::length<u8>(ct1_bytes), ERR_WRONG_PAIR_ORDERING);
-
-        if (vector::length<u8>(ct0_bytes) == vector::length<u8>(ct1_bytes)) {
-            let count = vector::length<u8>(ct0_bytes);
-            let i = 0;
-            while (i < count) {
-                assert!(*vector::borrow<u8>(ct0_bytes, i) <= *vector::borrow<u8>(ct1_bytes, i), ERR_WRONG_PAIR_ORDERING);
-            }
-        };
     }
 
 

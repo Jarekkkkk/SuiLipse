@@ -10,17 +10,17 @@ module sui_lipse::amm_math{
     public fun get_x_price(res_x: u64, res_y:u64):u64{
         res_y / res_x
     }
-    /// for fetch pool info
+    /// for fetching pool info
     public fun get_l(res_x:u64, res_y: u64):u64{
         sqrt(res_x) * sqrt(res_y)
     }
-    /// for add liquidity
+    /// for adding liquidity
     /// b' (optimzied_) = (Y/X) * a, subjected to Y/X = b/a
-    public fun quote(res_x:u64, res_y:u64, one_side_input:u64):u64{
-        assert!(res_x > 0 && res_y > 0, EReservesEmpty);
+    public fun quote(res_1:u64, res_2:u64, one_side_input:u64):u64{
+        assert!(res_1 > 0 && res_2 > 0, EReservesEmpty);
         assert!(one_side_input > 0, EInsufficientInput);
 
-        (res_y/ res_x) * one_side_input
+        (res_2/ res_1) * one_side_input
     }
     /// swap
     /// dy = (dx * y) / (dx + x), at dx' = dx(1 - fee)
