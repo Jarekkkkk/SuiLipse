@@ -10,6 +10,8 @@ module sui_lipse::amm{
     use std::type_name;
     use std::vector;
 
+    use sui_lipse::uq128x128;
+
     // ===== EVENT =====
     /// input amount is zero, including 'pair of assets<X,Y>' and 'LP_TOKEN'
     const ERR_Zero_Amount:u64 = 0;
@@ -64,8 +66,8 @@ module sui_lipse::amm{
         lp_supply: Supply<LP_TOKEN<V, X, Y>>,
         fee_percentage:u64, // 1 equals to 0.01%
         last_block_timestamp: u64,
-        last_price_x_cumulative: u128,
-        last_price_y_cumulative: u128,
+        last_price_x_cumulative: u256,
+        last_price_y_cumulative: u256,
         locked: bool, //for flashlaod usage
         emergency: bool
     }
@@ -93,8 +95,8 @@ module sui_lipse::amm{
         coin1_out: u64,
     }
     struct OracleUpdatedEvent<phantom V, phantom X, phantom Y> has copy, drop {
-        last_price_cumulative_0: u128,
-        last_price_cumulative_1: u128,
+        last_price_cumulative_0: u256,
+        last_price_cumulative_1: u256,
     }
 
     // ===== Assertion =====
@@ -433,6 +435,7 @@ module sui_lipse::amm{
         assert!(token_y_output >= amount_b_min, ERR_Insufficient_B_Amount);
 
         balance::decrease_supply<LP_TOKEN<V, X, Y>>(&mut pool.lp_supply,coin::into_balance(lp_token));
+        //update_cumulative_prices(pool, token_x_output, token_y_output);
 
         return (
             coin::take<X>(&mut pool.reserve_x, token_x_output, ctx),
@@ -463,6 +466,7 @@ module sui_lipse::amm{
 
 
         balance::join<X>(&mut pool.reserve_x, x_balance);// transaction fee goes back to pool
+        //update_cumulative_prices(pool, reserve_x, reserve_y);
 
         return(
             coin::take<Y>(&mut pool.reserve_y, output_amount, ctx),
@@ -491,6 +495,7 @@ module sui_lipse::amm{
         let token_y_balance = coin::into_balance(token_y);
 
         balance::join<Y>(&mut pool.reserve_y, token_y_balance);
+        //update_cumulative_prices(pool, reserve_x, reserve_y);
 
         return (
             coin::take<X>(&mut pool.reserve_x, output_amount, ctx),
@@ -510,7 +515,31 @@ module sui_lipse::amm{
             balance::supply_value(&pool.lp_supply)
         )
     }
+    public fun update_cumulative_prices<V, X, Y>(pool: &mut Pool<V, X, Y>, reserve_0_val: u64, reserve_1_val: u64){
+        //PENDING: should be corrected in the futrues
+        let reserve_0_val = (reserve_0_val as u128);
+        let reserve_1_val = (reserve_1_val as u128);
+        let last_time_stamp = pool.last_block_timestamp;
+        let current_time_stamp = block_timestamp();
+        let time_elapsed = ((current_time_stamp - last_time_stamp) as u256);
+        if(time_elapsed > 0 && reserve_0_val != 0 && reserve_1_val != 0){
+            let _last_price_x_cumulative = uq128x128::fraction(reserve_1_val, reserve_0_val);
+            let _foo = uq128x128::to_u256(&_last_price_x_cumulative);
 
+            // let _last_price_y_cumulative = uq128x128::to_u256(uq128x128::fraction(reserve_0_val, reserve_1_val)) * time_elapsed;
+
+            // pool.last_price_x_cumulative = amm_math::overflow_add(pool.last_price_x_cumulative, last_price_x_cumulative);
+            // pool.last_price_x_cumulative = amm_math::overflow_add(pool.last_price_y_cumulative, last_price_y_cumulative);
+
+
+            // event::emit(
+            //     OracleUpdatedEvent<V, X, Y>{
+            //         last_price_cumulative_0: pool.last_price_x_cumulative,
+            //         last_price_cumulative_1: pool.last_price_x_cumulative
+            //     }
+            // );
+        }
+    }
 
     //glue calling for init the module
     #[test_only]
@@ -548,22 +577,22 @@ module sui_lipse::amm_test{
         test_init_pool_<AMM_V2, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
         test::end(scenario);
     }
-    #[test] fun test_init_sui_pool(){
+     fun test_init_sui_pool(){
         let scenario = test::begin(@0x2);
         test_init_pool_<AMM_V2, TOKEN_X, TOKEN_Y>(TOKEN_X_AMT, TOKEN_Y_AMT, &mut scenario);
         test::end(scenario);
     }
-     #[test] fun test_swap_sui() {
+      fun test_swap_sui() {
         let scenario = test::begin(@0x1);
         test_swap_sui_<AMM_V2, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
         test::end(scenario);
     }
-     #[test] fun test_swap_token_y() {
+      fun test_swap_token_y() {
         let scenario = test::begin(@0x1);
         test_swap_token_y_<AMM_V2, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
         test::end(scenario);
     }
-     #[test] fun test_add_liquidity() {
+      fun test_add_liquidity() {
         let scenario = test::begin(@0x1);
         add_liquidity_<AMM_V2, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
         test::end(scenario);

@@ -36,6 +36,12 @@ module sui_lipse::uq128x128{
         ensures result == uq.v / Q128;
     }
 
+    /// Get `u128` from UQ64x64
+    public fun to_u256(uq: &UQ128X128): u256 {
+        uq.v
+    }
+
+
     /// Multiply a `UQ128X128` by a `u64`, returning a `UQ128X128`
     public fun mul(uq: UQ128X128, y: u128): UQ128X128 {
         // vm would direct abort when overflow occured

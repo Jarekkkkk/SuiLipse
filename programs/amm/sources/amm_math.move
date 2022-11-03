@@ -6,6 +6,12 @@ module sui_lipse::amm_math{
     const EInsufficientInput:u64 = 2;
     const EInsufficientLiquidityBurned:u64 = 3;
 
+    const MAX_U64: u128 = 18446744073709551615;
+
+    /// Maximum of u128 number.
+    const MAX_U128: u128 = 340282366920938463463374607431768211455;
+    const MAX_U256: u256 = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+
     /// currently we are unable to get either block.timestamp & epoch, so we directly fetch the reserve's pool
     public fun get_x_price(res_x: u64, res_y:u64):u64{
         res_y / res_x
@@ -81,6 +87,19 @@ module sui_lipse::amm_math{
             if (exp == 0u8) { break };
         };
         result
+    }
+
+     public fun overflow_add(a: u256, b: u256): u256 {
+        let r = MAX_U256 - b;
+        if (r < a) {
+            return a - r - 1
+        };
+        r = MAX_U256 - a;
+        if (r < b) {
+            return b - r - 1
+        };
+
+        a + b
     }
 
 }
