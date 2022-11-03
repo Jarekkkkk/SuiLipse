@@ -41,6 +41,7 @@ module sui_lipse::amm{
     };
 
     // ===== Object =====
+    struct AMM_V2 has drop {}
     //must be `uppercase` to become one-time witness
     struct LP_TOKEN<phantom V, phantom X, phantom Y> has drop {}
     struct Guardians has key{
@@ -65,7 +66,7 @@ module sui_lipse::amm{
         last_block_timestamp: u64,
         last_price_x_cumulative: u128,
         last_price_y_cumulative: u128,
-        locked: bool,
+        locked: bool, //for flashlaod usage
         emergency: bool
     }
 
@@ -103,22 +104,22 @@ module sui_lipse::amm{
     fun assert_no_emergency<V, X, Y>(pool: &Pool<V, X, Y> ){
         assert!(!pool.emergency, ERR_EMERGENCY);
     }
-    fun assert_sorted<CT0, CT1>() {
-        let ct0_name = type_name::into_string(type_name::get<CT0>());
-        let ct1_name = type_name::into_string(type_name::get<CT1>());
+    fun assert_sorted<X, Y>() {
+        let coin_x_name = type_name::into_string(type_name::get<X>());
+        let coin_y_name = type_name::into_string(type_name::get<Y>());
 
-        assert!(ct0_name != ct1_name, ERR_PAIR_CANT_BE_SAME_TYPE);
+        assert!(coin_x_name != coin_y_name, ERR_PAIR_CANT_BE_SAME_TYPE);
 
-        let ct0_bytes = std::ascii::as_bytes(&ct0_name);
-        let ct1_bytes = std::ascii::as_bytes(&ct1_name);
+        let coin_x_bytes = std::ascii::as_bytes(&coin_x_name);
+        let coin_y_bytes = std::ascii::as_bytes(&coin_y_name);
 
-        assert!(vector::length<u8>(ct0_bytes) <= vector::length<u8>(ct1_bytes), ERR_WRONG_PAIR_ORDERING);
+        assert!(vector::length<u8>(coin_x_bytes) <= vector::length<u8>(coin_y_bytes), ERR_WRONG_PAIR_ORDERING);
 
-        if (vector::length<u8>(ct0_bytes) == vector::length<u8>(ct1_bytes)) {
-            let count = vector::length<u8>(ct0_bytes);
+        if (vector::length<u8>(coin_x_bytes) == vector::length<u8>(coin_y_bytes)) {
+            let count = vector::length<u8>(coin_x_bytes);
             let i = 0;
             while (i < count) {
-                assert!(*vector::borrow<u8>(ct0_bytes, i) <= *vector::borrow<u8>(ct1_bytes, i), ERR_WRONG_PAIR_ORDERING);
+                assert!(*vector::borrow<u8>(coin_x_bytes, i) <= *vector::borrow<u8>(coin_y_bytes, i), ERR_WRONG_PAIR_ORDERING);
             }
         };
     }
@@ -279,6 +280,7 @@ module sui_lipse::amm{
         );
     }
 
+    // ====== MAIN_LOGIC ======
     fun init(ctx:&mut TxContext){
         let guardians = vec_set::empty<address>();
         vec_set::insert(&mut guardians, tx_context::sender(ctx));
