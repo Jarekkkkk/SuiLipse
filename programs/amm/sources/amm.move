@@ -517,8 +517,26 @@ module sui_lipse::amm{
         )
     }
 
+    // use sui_lipse::uq128x128;
+    // fun update_cumulative_price_1<V, X, Y>(pool: &mut Pool<V, X, Y>, reserve_0_val: u64, reserve_1_val: u64) {
+    //     let reserve_0_val = (reserve_0_val as u128);
+    //     let reserve_1_val = (reserve_1_val as u128);
+    //     let last_block_timestamp = pool.last_block_timestamp;
+
+    //     let block_timestamp = block_timestamp();
+
+    //     let time_elapsed = ((block_timestamp - last_block_timestamp) as u128);
+
+    //     if (time_elapsed > 0 && reserve_0_val != 0 && reserve_1_val != 0) {
+    //         let _last_price_0_cumulative = uq128x128::to_u256(uq128x128::fraction(reserve_1_val, reserve_0_val));
+
+    //     };
+
+    //     pool.last_block_timestamp = block_timestamp;
+    // }
+    // ======
     use sui_lipse::uq64x64;
-    fun update_cumulative_price<CT0, CT1, AMM_V2>(pool: &mut Pool<CT0, CT1, AMM_V2>, reserve_0_val: u64, reserve_1_val: u64) {
+    fun update_cumulative_price<V, X, Y>(pool: &mut Pool<V, X, Y>, reserve_0_val: u64, reserve_1_val: u64) {
         let last_block_timestamp = pool.last_block_timestamp;
 
         let block_timestamp = block_timestamp();
@@ -592,7 +610,7 @@ module sui_lipse::amm_test{
         add_liquidity_<AMM_V2, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
         test::end(scenario);
     }
-    #[test] fun test_remove_liquidity() {
+    fun test_remove_liquidity() {
         let scenario = test::begin(@0x1);
         remove_liquidity_<AMM_V2, SUI, TOKEN_Y>(SUI_AMT, TOKEN_Y_AMT, &mut scenario);
         test::end(scenario);

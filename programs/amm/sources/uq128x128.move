@@ -13,7 +13,7 @@ module sui_lipse::uq128x128{
     /// When a is greater than b.
     const GREATER_THAN: u8 = 2;
 
-    struct UQ128x128 has copy, store, drop{
+    struct UQ128x128 has store, drop{
         v: u256
     }
 
@@ -36,7 +36,7 @@ module sui_lipse::uq128x128{
         ensures result == uq.v / Q128;
     }
 
-    /// Get `u256` from UQ128x128
+
     public fun to_u256(uq: UQ128x128): u256 {
         uq.v
     }
