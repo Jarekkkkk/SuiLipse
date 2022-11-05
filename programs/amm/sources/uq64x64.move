@@ -9,6 +9,7 @@ module sui_lipse::uq64x64 {
 
     const Q64: u128 = 18446744073709551615;
 
+
     /// When a and b are equals.
     const EQUAL: u8 = 0;
 

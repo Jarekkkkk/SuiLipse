@@ -10,7 +10,8 @@ module sui_lipse::amm{
     use std::type_name;
     use std::vector;
 
-    use sui_lipse::uq128x128;
+
+
 
     // ===== EVENT =====
     /// input amount is zero, including 'pair of assets<X,Y>' and 'LP_TOKEN'
@@ -66,8 +67,8 @@ module sui_lipse::amm{
         lp_supply: Supply<LP_TOKEN<V, X, Y>>,
         fee_percentage:u64, // 1 equals to 0.01%
         last_block_timestamp: u64,
-        last_price_x_cumulative: u256,
-        last_price_y_cumulative: u256,
+        last_price_x_cumulative: u128,
+        last_price_y_cumulative: u128,
         locked: bool, //for flashlaod usage
         emergency: bool
     }
@@ -95,8 +96,8 @@ module sui_lipse::amm{
         coin1_out: u64,
     }
     struct OracleUpdatedEvent<phantom V, phantom X, phantom Y> has copy, drop {
-        last_price_cumulative_0: u256,
-        last_price_cumulative_1: u256,
+        last_price_cumulative_0: u128,
+        last_price_cumulative_1: u128,
     }
 
     // ===== Assertion =====
@@ -169,7 +170,7 @@ module sui_lipse::amm{
     ){
         let pool = create_pool_<V, X, Y>(
                 pool_list, token_x, token_y, fee_percentage, ctx
-            );
+        );
         let pool_id = object::id(&pool);
 
         transfer::share_object(
@@ -515,30 +516,24 @@ module sui_lipse::amm{
             balance::supply_value(&pool.lp_supply)
         )
     }
-    public fun update_cumulative_prices<V, X, Y>(pool: &mut Pool<V, X, Y>, reserve_0_val: u64, reserve_1_val: u64){
-        //PENDING: should be corrected in the futrues
-        let reserve_0_val = (reserve_0_val as u128);
-        let reserve_1_val = (reserve_1_val as u128);
-        let last_time_stamp = pool.last_block_timestamp;
-        let current_time_stamp = block_timestamp();
-        let time_elapsed = ((current_time_stamp - last_time_stamp) as u256);
-        if(time_elapsed > 0 && reserve_0_val != 0 && reserve_1_val != 0){
-            let _last_price_x_cumulative = uq128x128::fraction(reserve_1_val, reserve_0_val);
-            let _foo = uq128x128::to_u256(&_last_price_x_cumulative);
 
-            // let _last_price_y_cumulative = uq128x128::to_u256(uq128x128::fraction(reserve_0_val, reserve_1_val)) * time_elapsed;
+    use sui_lipse::uq64x64;
+    fun update_cumulative_price<CT0, CT1, AMM_V2>(pool: &mut Pool<CT0, CT1, AMM_V2>, reserve_0_val: u64, reserve_1_val: u64) {
+        let last_block_timestamp = pool.last_block_timestamp;
 
-            // pool.last_price_x_cumulative = amm_math::overflow_add(pool.last_price_x_cumulative, last_price_x_cumulative);
-            // pool.last_price_x_cumulative = amm_math::overflow_add(pool.last_price_y_cumulative, last_price_y_cumulative);
+        let block_timestamp = block_timestamp();
 
+        let time_elapsed = ((block_timestamp - last_block_timestamp) as u128);
 
-            // event::emit(
-            //     OracleUpdatedEvent<V, X, Y>{
-            //         last_price_cumulative_0: pool.last_price_x_cumulative,
-            //         last_price_cumulative_1: pool.last_price_x_cumulative
-            //     }
-            // );
-        }
+        if (time_elapsed > 0 && reserve_0_val != 0 && reserve_1_val != 0) {
+            let last_price_0_cumulative = uq64x64::to_u128(uq64x64::fraction(reserve_1_val, reserve_0_val)) * time_elapsed;
+            let last_price_1_cumulative = uq64x64::to_u128(uq64x64::fraction(reserve_0_val, reserve_1_val)) * time_elapsed;
+
+            pool.last_price_x_cumulative = amm_math::overflow_add(pool.last_price_x_cumulative, last_price_0_cumulative);
+            pool.last_price_y_cumulative = amm_math::overflow_add(pool.last_price_y_cumulative, last_price_1_cumulative);
+        };
+
+        pool.last_block_timestamp = block_timestamp;
     }
 
     //glue calling for init the module

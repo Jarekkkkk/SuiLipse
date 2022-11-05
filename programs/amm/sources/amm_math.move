@@ -89,12 +89,12 @@ module sui_lipse::amm_math{
         result
     }
 
-     public fun overflow_add(a: u256, b: u256): u256 {
-        let r = MAX_U256 - b;
+     public fun overflow_add(a: u128, b: u128): u128 {
+        let r = MAX_U128 - b;
         if (r < a) {
             return a - r - 1
         };
-        r = MAX_U256 - a;
+        r = MAX_U128 - a;
         if (r < b) {
             return b - r - 1
         };
